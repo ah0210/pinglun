@@ -1,5 +1,6 @@
 // functions/api/v1/auth/verify-email.ts — 邮箱验证确认
 import { apiHandler } from '../../../../lib/middleware';
+import { hashToken } from '../../../../lib/jwt';
 import { successResponse, errorResponse, ErrorCode } from '../../../../lib/response';
 import type { Env, DbVerification } from '../../../../lib/types';
 
@@ -11,10 +12,11 @@ export const onRequestGet = apiHandler(async (request, env) => {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '缺少验证 token', 400);
   }
 
-  // 查找验证记录
+  // 哈希 token 后查找验证记录（与 refresh_tokens 一致的安全策略）
+  const tokenHash = await hashToken(token);
   const verification = await env.DB.prepare(
     'SELECT * FROM email_verifications WHERE token = ?'
-  ).bind(token).first<DbVerification>();
+  ).bind(tokenHash).first<DbVerification>();
 
   if (!verification) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '验证链接无效', 400);

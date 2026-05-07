@@ -5,28 +5,59 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
     console.log('[Cron] Starting scheduled cleanup...');
 
+    const results: string[] = [];
+    let hasError = false;
+
     try {
       // 清理过期验证记录
-      const verifResult = await env.DB.prepare(
-        "DELETE FROM email_verifications WHERE expires_at < datetime('now') AND verified = 0"
-      ).run();
-      console.log(`[Cron] Deleted ${verifResult.meta.changes} expired verifications`);
+      try {
+        const verifResult = await env.DB.prepare(
+          "DELETE FROM email_verifications WHERE expires_at < datetime('now') AND verified = 0"
+        ).run();
+        const count = verifResult.meta.changes;
+        results.push(`过期验证: ${count} 条`);
+        console.log(`[Cron] Deleted ${count} expired verifications`);
+      } catch (e) {
+        hasError = true;
+        results.push(`过期验证: 失败 - ${e}`);
+        console.error('[Cron] Failed to clean verifications:', e);
+      }
 
       // 清理过期 Refresh Token
-      const tokenResult = await env.DB.prepare(
-        "DELETE FROM refresh_tokens WHERE expires_at < datetime('now')"
-      ).run();
-      console.log(`[Cron] Deleted ${tokenResult.meta.changes} expired refresh tokens`);
+      try {
+        const tokenResult = await env.DB.prepare(
+          "DELETE FROM refresh_tokens WHERE expires_at < datetime('now')"
+        ).run();
+        const count = tokenResult.meta.changes;
+        results.push(`过期 Token: ${count} 个`);
+        console.log(`[Cron] Deleted ${count} expired refresh tokens`);
+      } catch (e) {
+        hasError = true;
+        results.push(`过期 Token: 失败 - ${e}`);
+        console.error('[Cron] Failed to clean tokens:', e);
+      }
 
       // 清理已吊销超过 30 天的 Refresh Token
-      const revokedResult = await env.DB.prepare(
-        "DELETE FROM refresh_tokens WHERE revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days')"
-      ).run();
-      console.log(`[Cron] Deleted ${revokedResult.meta.changes} old revoked tokens`);
+      try {
+        const revokedResult = await env.DB.prepare(
+          "DELETE FROM refresh_tokens WHERE revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days')"
+        ).run();
+        const count = revokedResult.meta.changes;
+        results.push(`历史吊销 Token: ${count} 个`);
+        console.log(`[Cron] Deleted ${count} old revoked tokens`);
+      } catch (e) {
+        hasError = true;
+        results.push(`历史吊销 Token: 失败 - ${e}`);
+        console.error('[Cron] Failed to clean revoked tokens:', e);
+      }
 
-      console.log('[Cron] Cleanup completed successfully');
+      if (hasError) {
+        console.error(`[Cron] Cleanup completed with errors: ${results.join('; ')}`);
+      } else {
+        console.log(`[Cron] Cleanup completed successfully: ${results.join('; ')}`);
+      }
     } catch (error) {
-      console.error('[Cron] Cleanup failed:', error);
+      console.error('[Cron] Cleanup failed with unexpected error:', error);
     }
   },
 };

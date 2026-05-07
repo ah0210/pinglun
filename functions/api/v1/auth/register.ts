@@ -32,8 +32,14 @@ export const onRequestPost = apiHandler(async (request, env) => {
   }
 
   // 验证密码强度
-  if (password.length < 6) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码至少 6 个字符', 400);
+  if (password.length < 8) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码至少 8 个字符', 400);
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码必须包含至少一个字母', 400);
+  }
+  if (!/[0-9]/.test(password)) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码必须包含至少一个数字', 400);
   }
 
   // 验证邮箱格式
@@ -86,10 +92,11 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   // 创建邮箱验证 token
   const verifyToken = generateToken();
+  const verifyTokenHash = await hashToken(verifyToken);
   const verifyExpires = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
   await env.DB.prepare(
     `INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)`
-  ).bind(userId, verifyToken, verifyExpires).run();
+  ).bind(userId, verifyTokenHash, verifyExpires).run();
 
   // 发送验证邮件（异步，不阻塞响应）
   const verifyUrl = `${env.PUBLIC_URL}/api/v1/auth/verify-email?token=${verifyToken}`;

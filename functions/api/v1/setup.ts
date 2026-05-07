@@ -6,6 +6,20 @@ import { sanitizeUsername, sanitizeEmail } from '../../../../lib/sanitize';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
 import type { Env } from '../../../../lib/types';
 
+/** 密码强度校验：至少 8 位，包含字母和数字 */
+function validatePasswordStrength(password: string): string | null {
+  if (password.length < 8) {
+    return '密码至少 8 个字符';
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return '密码必须包含至少一个字母';
+  }
+  if (!/[0-9]/.test(password)) {
+    return '密码必须包含至少一个数字';
+  }
+  return null;
+}
+
 export const onRequestPost = apiHandler(async (request, env) => {
   // 检查是否已有管理员
   const adminCount = await env.DB.prepare(
@@ -26,11 +40,21 @@ export const onRequestPost = apiHandler(async (request, env) => {
     const body = await request.json() as { username?: string; email?: string; password?: string };
     username = body.username || env.ADMIN_USERNAME || 'admin';
     email = body.email || env.ADMIN_EMAIL || 'admin@example.com';
-    password = body.password || env.ADMIN_PASSWORD || 'admin123456';
+    password = body.password || env.ADMIN_PASSWORD || '';
   } else {
     username = env.ADMIN_USERNAME || 'admin';
     email = env.ADMIN_EMAIL || 'admin@example.com';
-    password = env.ADMIN_PASSWORD || 'admin123456';
+    password = env.ADMIN_PASSWORD || '';
+  }
+
+  if (!password) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '请设置管理员密码（通过请求体或 ADMIN_PASSWORD 环境变量）', 400);
+  }
+
+  // 密码强度校验
+  const passwordError = validatePasswordStrength(password);
+  if (passwordError) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, passwordError, 400);
   }
 
   username = sanitizeUsername(username);

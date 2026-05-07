@@ -12,6 +12,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    minify: 'esbuild',
     lib: {
       entry: resolve(__dirname, 'src/widget/entry.ts'),
       name: 'LiuyanBoard',

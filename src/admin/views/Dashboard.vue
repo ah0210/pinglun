@@ -50,7 +50,7 @@ const stats = reactive<AdminStats>({
 async function fetchStats() {
   const resp = await fetch('/api/v1/admin/stats', {
     headers: { 'Authorization': `Bearer ${authStore.token}` },
-    credentials: 'Include',
+    credentials: 'include',
   });
   const data = await resp.json();
   if (data.success && data.data) {
@@ -67,7 +67,7 @@ async function handleCleanup() {
         'Authorization': `Bearer ${authStore.token}`,
         'Content-Type': 'application/json',
       },
-      credentials: 'Include',
+      credentials: 'include',
     });
     const data = await resp.json();
     if (data.success) {

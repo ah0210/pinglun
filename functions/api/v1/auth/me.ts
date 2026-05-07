@@ -41,7 +41,7 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
 
   if (body.bio !== undefined) {
     updates.push('bio = ?');
-    values.push(body.bio.slice(0, 200));
+    values.push(escapeHtml(body.bio.slice(0, 200)));
   }
 
   if (updates.length === 0) {

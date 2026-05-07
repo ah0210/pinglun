@@ -56,7 +56,7 @@ const config = reactive<AdminConfig>({
 async function fetchConfig() {
   const resp = await fetch('/api/v1/admin/config', {
     headers: { 'Authorization': `Bearer ${authStore.token}` },
-    credentials: 'Include',
+    credentials: 'include',
   });
   const data = await resp.json();
   if (data.success && data.data) {
@@ -70,7 +70,7 @@ async function handleSave() {
     const resp = await fetch('/api/v1/admin/config', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-      credentials: 'Include',
+      credentials: 'include',
       body: JSON.stringify(config),
     });
     const data = await resp.json();

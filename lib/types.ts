@@ -9,6 +9,7 @@ export interface Env {
   PUBLIC_URL: string;
   SITE_NAME: string;
   ALLOWED_ORIGINS: string;
+  TURNSTILE_SITE_KEY?: string;
   ADMIN_USERNAME?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;

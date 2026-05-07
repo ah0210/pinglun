@@ -17,6 +17,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
       moderationEnabled: false,
       dailySecretLimit: 5,
       allowRegistration: true,
+      turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
     }, cacheHeaders(300));
   }
 
@@ -28,5 +29,6 @@ export const onRequestGet = apiHandler(async (request, env) => {
     moderationEnabled: c.moderation_enabled === 1,
     dailySecretLimit: c.daily_secret_limit,
     allowRegistration: c.allow_registration === 1,
+    turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
   }, cacheHeaders(300));
 }, { requireAuth: false });

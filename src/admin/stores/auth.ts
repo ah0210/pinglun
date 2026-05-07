@@ -56,7 +56,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const resp = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
-        credentials: 'Include',
+        credentials: 'include',
       });
 
       if (!resp.ok) return false;
@@ -77,7 +77,7 @@ export const useAuthStore = defineStore('auth', () => {
     const resp = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'Include',
+      credentials: 'include',
       body: JSON.stringify({ login, password, turnstileToken }),
     });
 
@@ -98,7 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        credentials: 'Include',
+        credentials: 'include',
         headers: token.value ? { 'Authorization': `Bearer ${token.value}` } : {},
       });
     } finally {

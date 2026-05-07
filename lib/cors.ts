@@ -10,7 +10,10 @@ export function corsHeaders(request: Request, env: Env): Record<string, string> 
   const origin = request.headers.get('Origin') || '';
   const allowed = env.ALLOWED_ORIGINS?.split(',').map(s => s.trim()) || DEFAULT_ALLOWED_ORIGINS;
 
-  if (!allowed.includes(origin)) {
+  // 防御：过滤掉通配符和空值，避免 Allow-Credentials + * 的安全隐患
+  const safeOrigins = allowed.filter(o => o && o !== '*');
+
+  if (!safeOrigins.includes(origin)) {
     return {};
   }
 

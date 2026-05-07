@@ -26,7 +26,13 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   // 检查是否已吊销
   if (storedToken.revoked_at) {
-    return errorResponse(ErrorCode.REFRESH_TOKEN_INVALID, 'Refresh Token 已被吊销', 401);
+    // 检测到已吊销的 token 被重放 — 说明 token 可能被窃取
+    // 安全策略：吊销该用户的所有 refresh token，强制重新登录
+    await env.DB.prepare(
+      'UPDATE refresh_tokens SET revoked_at = datetime("now") WHERE user_id = ? AND revoked_at IS NULL'
+    ).bind(storedToken.user_id).run();
+
+    return errorResponse(ErrorCode.REFRESH_TOKEN_INVALID, '检测到异常令牌使用，请重新登录', 401);
   }
 
   // 检查是否过期

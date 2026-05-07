@@ -46,7 +46,7 @@ async function fetchLogs(p = 1) {
 
     const resp = await fetch(`/api/v1/admin/logs?${params}`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` },
-      credentials: 'Include',
+      credentials: 'include',
     });
     const data = await resp.json();
     if (data.success) {

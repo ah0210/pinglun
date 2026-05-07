@@ -83,7 +83,7 @@ async function fetchUsers(p = 1) {
 
     const resp = await fetch(`/api/v1/admin/users?${params}`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` },
-      credentials: 'Include',
+      credentials: 'include',
     });
     const data = await resp.json();
     if (data.success) {
@@ -106,7 +106,7 @@ async function handleRole(id: number, role: string) {
       const resp = await fetch(`/api/v1/admin/users/${id}`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-        credentials: 'Include',
+        credentials: 'include',
         body: JSON.stringify({ role }),
       });
       const data = await resp.json();
@@ -120,7 +120,7 @@ async function handleStatus(id: number, status: string) {
   const resp = await fetch(`/api/v1/admin/users/${id}`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-    credentials: 'Include',
+    credentials: 'include',
     body: JSON.stringify({ status }),
   });
   const data = await resp.json();

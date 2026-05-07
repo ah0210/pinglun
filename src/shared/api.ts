@@ -104,7 +104,7 @@ export async function apiRequest<T>(
       const retryResp = await fetch(`${apiBase}${path}`, {
         ...options,
         headers,
-        credentials: 'Include',
+        credentials: 'include',
       });
       return retryResp.json();
     }

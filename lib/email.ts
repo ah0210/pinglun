@@ -1,6 +1,7 @@
 // lib/email.ts — Resend 邮件发送（同步直接调用）
 
 import type { Env } from './types';
+import { escapeHtml } from './sanitize';
 
 interface EmailPayload {
   to: string;
@@ -31,11 +32,13 @@ export async function sendEmail(payload: EmailPayload, env: Env): Promise<boolea
 }
 
 export function buildVerifyEmailHtml(username: string, verifyUrl: string): string {
+  const safeUsername = escapeHtml(username);
+  const safeUrl = encodeURI(verifyUrl);
   return `
     <div style="max-width:560px;margin:0 auto;font-family:sans-serif;">
-      <h2>欢迎注册自游人留言板，${username}！</h2>
+      <h2>欢迎注册自游人留言板，${safeUsername}！</h2>
       <p>请点击下方链接验证您的邮箱：</p>
-      <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#0066cc;color:#fff;border-radius:6px;text-decoration:none;">
+      <a href="${safeUrl}" style="display:inline-block;padding:12px 24px;background:#0066cc;color:#fff;border-radius:6px;text-decoration:none;">
         验证邮箱
       </a>
       <p style="color:#999;font-size:12px;">链接 24 小时内有效。如非本人操作请忽略。</p>

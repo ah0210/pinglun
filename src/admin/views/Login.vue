@@ -28,12 +28,25 @@ const authStore = useAuthStore();
 const loading = ref(false);
 const error = ref('');
 const turnstileId = 'admin-turnstile-' + Math.random().toString(36).slice(2, 8);
+const turnstileSiteKey = ref('');
 
 const form = ref({ login: '', password: '' });
 const rules = {
   login: { required: true, message: '请输入用户名或邮箱' },
   password: { required: true, message: '请输入密码' },
 };
+
+async function fetchConfig() {
+  try {
+    const resp = await fetch('/api/v1/config');
+    const data = await resp.json();
+    if (data.success && data.data?.turnstileSiteKey) {
+      turnstileSiteKey.value = data.data.turnstileSiteKey;
+    }
+  } catch {
+    // 忽略，Turnstile 降级
+  }
+}
 
 async function handleLogin() {
   if (!form.value.login || !form.value.password) return;
@@ -44,10 +57,10 @@ async function handleLogin() {
   try {
     // 获取 Turnstile token
     let turnstileToken = '';
-    if ((window as any).turnstile) {
+    if ((window as any).turnstile && turnstileSiteKey.value) {
       turnstileToken = await new Promise<string>((resolve) => {
         (window as any).turnstile.render(`#${turnstileId}`, {
-          sitekey: '0x4AAAAAADKEiieQVd99LXKI',
+          sitekey: turnstileSiteKey.value,
           callback: (token: string) => resolve(token),
           'error-callback': () => resolve(''),
           size: 'invisible',
@@ -68,13 +81,16 @@ async function handleLogin() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 加载 Turnstile 脚本
   if (!document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
     const script = document.createElement('script');
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?async=true';
     document.head.appendChild(script);
   }
+
+  // 获取配置（含 turnstile site key）
+  await fetchConfig();
 
   // 初始化 auth 状态
   authStore.init();

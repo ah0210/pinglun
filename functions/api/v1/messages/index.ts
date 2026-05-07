@@ -46,6 +46,8 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
      LIMIT ? OFFSET ?`
   ).bind(...binds, limit, (page - 1) * limit).all<DbMessage & { username: string; display_name: string; avatar: string; email: string; user_role: string; bio: string }>();
 
+  // 利用已获取的 total 避免重复查询
+
   // 处理秘密留言内容
   const items = (messages.results || []).map(m => {
     const publicUser: ReturnType<typeof toPublicUser> = {
@@ -111,7 +113,10 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   }
 
   // 验证码检查
-  if (config?.require_captcha && body.turnstileToken) {
+  if (config?.require_captcha) {
+    if (!body.turnstileToken) {
+      return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
+    }
     const valid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
     if (!valid) {
       return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败', 400);

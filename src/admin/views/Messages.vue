@@ -106,7 +106,7 @@ async function fetchMessages(p = 1) {
 
     const resp = await fetch(`/api/v1/admin/messages?${params}`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` },
-      credentials: 'Include',
+      credentials: 'include',
     });
     const data = await resp.json();
     if (data.success) {
@@ -122,7 +122,7 @@ async function handleApprove(id: number) {
   const resp = await fetch(`/api/v1/admin/messages/${id}`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-    credentials: 'Include',
+    credentials: 'include',
     body: JSON.stringify({ status: 'approved' }),
   });
   const data = await resp.json();
@@ -134,7 +134,7 @@ async function handleReject(id: number) {
   const resp = await fetch(`/api/v1/admin/messages/${id}`, {
     method: 'PATCH',
     headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-    credentials: 'Include',
+    credentials: 'include',
     body: JSON.stringify({ status: 'rejected' }),
   });
   const data = await resp.json();
@@ -152,7 +152,7 @@ async function handleDelete(id: number) {
       const resp = await fetch(`/api/v1/admin/messages/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${authStore.token}` },
-        credentials: 'Include',
+        credentials: 'include',
       });
       const data = await resp.json();
       if (data.success) { message.success('已删除'); fetchMessages(page.value); }
@@ -171,7 +171,7 @@ async function handleBatchDelete() {
       const resp = await fetch('/api/v1/admin/messages/batch-delete', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-        credentials: 'Include',
+        credentials: 'include',
         body: JSON.stringify({ ids: checkedIds.value }),
       });
       const data = await resp.json();

@@ -7,6 +7,11 @@ import { getAvatarUrl } from '../../../../lib/avatar';
 import { ErrorCode, errorResponse } from '../../../../lib/response';
 import type { Env, DbUser } from '../../../../lib/types';
 
+// 暴力破解防护：内存中的失败计数（单实例有效，Workers 多实例但已由 Turnstile 兜底）
+const loginAttempts = new Map<string, { count: number; lockedUntil: number }>();
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 15 * 60; // 15 分钟锁定
+
 export const onRequestPost = apiHandler(async (request, env) => {
   const body = await request.json() as {
     login: string;
@@ -16,6 +21,14 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   if (!body.login || !body.password || !body.turnstileToken) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写所有必填字段', 400);
+  }
+
+  // 暴力破解防护：检查 IP 是否被锁定
+  const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const attempt = loginAttempts.get(clientIP);
+  if (attempt && attempt.lockedUntil > Date.now()) {
+    const remaining = Math.ceil((attempt.lockedUntil - Date.now()) / 1000);
+    return errorResponse(ErrorCode.RATE_LIMITED, `登录失败次数过多，请 ${remaining} 秒后重试`, 429);
   }
 
   // Turnstile 验证
@@ -30,14 +43,19 @@ export const onRequestPost = apiHandler(async (request, env) => {
   ).bind(body.login.trim().toLowerCase(), body.login.trim().toLowerCase(), 'active').first<DbUser>();
 
   if (!user) {
+    recordFailedAttempt(clientIP);
     return errorResponse(ErrorCode.USER_NOT_FOUND, '用户名或密码错误', 401);
   }
 
   // 验证密码
   const valid = await verifyPassword(body.password, user.password_hash);
   if (!valid) {
+    recordFailedAttempt(clientIP);
     return errorResponse(ErrorCode.WRONG_PASSWORD, '用户名或密码错误', 401);
   }
+
+  // 登录成功：清除失败计数
+  loginAttempts.delete(clientIP);
 
   // 更新最后登录时间
   await env.DB.prepare('UPDATE users SET last_login_at = datetime("now") WHERE id = ?').bind(user.id).run();
@@ -84,3 +102,16 @@ export const onRequestPost = apiHandler(async (request, env) => {
     },
   });
 }, { requireAuth: false });
+
+/** 记录登录失败次数，达到上限后锁定 IP */
+function recordFailedAttempt(ip: string) {
+  const current = loginAttempts.get(ip);
+  if (!current || current.lockedUntil < Date.now()) {
+    loginAttempts.set(ip, { count: 1, lockedUntil: 0 });
+  } else {
+    current.count++;
+    if (current.count >= MAX_ATTEMPTS) {
+      current.lockedUntil = Date.now() + LOCKOUT_SECONDS * 1000;
+    }
+  }
+}
