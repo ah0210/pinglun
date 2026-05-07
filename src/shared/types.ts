@@ -1,0 +1,95 @@
+// src/shared/types.ts — 前端共享类型定义
+
+export interface PublicUser {
+  id: number;
+  username: string;
+  displayName: string;
+  avatar: string;
+  role: string;
+  bio?: string;
+  email?: string;
+  emailVerified?: boolean;
+}
+
+export interface PublicMessage {
+  id: number;
+  pageId: string;
+  content: string;
+  isSecret: boolean;
+  status: string;
+  replyTo: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  user: PublicUser;
+}
+
+export interface BoardConfig {
+  siteName: string;
+  maxMessageLength: number;
+  requireCaptcha: boolean;
+  moderationEnabled: boolean;
+  dailySecretLimit: number;
+  allowRegistration: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ApiError {
+  code: number;
+  message: string;
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: ApiError;
+}
+
+// Widget 初始化参数
+export interface WidgetOptions {
+  container: string;
+  pageId: string;
+  apiBase: string;
+  siteKey: string;
+  theme?: 'light' | 'dark' | 'auto';
+  maxLength?: number;
+}
+
+// 管理后台统计
+export interface AdminStats {
+  totalMessages: number;
+  todayMessages: number;
+  totalUsers: number;
+  pendingMessages: number;
+  secretMessages: number;
+}
+
+// 管理后台配置
+export interface AdminConfig {
+  siteName: string;
+  maxMessageLength: number;
+  requireCaptcha: boolean;
+  moderationEnabled: boolean;
+  dailySecretLimit: number;
+  allowRegistration: boolean;
+  updatedAt: string;
+}
+
+// 管理员操作日志
+export interface AdminLog {
+  id: number;
+  adminId: number;
+  adminUsername: string;
+  action: string;
+  targetType: string;
+  targetId: number | null;
+  detail: string;
+  ipAddress: string;
+  createdAt: string;
+}

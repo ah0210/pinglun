@@ -1,0 +1,9 @@
+# Hugo 配置示例 — 留言板参数
+# 将以下内容添加到你的 Hugo config.toml
+
+[params.guestbook]
+  enable = true
+  apiBase = "https://cf-guestbook.pages.dev/api/v1"
+  siteKey = "0x4AAAAAADKEiieQVd99LXKI"    # Turnstile Site Key
+  theme = "auto"                              # "light" | "dark" | "auto"
+  maxLength = 500                             # 留言最大字数

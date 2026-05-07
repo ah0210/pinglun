@@ -1,0 +1,35 @@
+<!-- Hugo: layouts/partials/footer/custom.html -->
+<!-- 留言板 Widget 懒加载 + preconnect 预连接 -->
+{{- if .Site.Params.guestbook.enable | default false }}
+<link rel="preconnect" href="https://cf-guestbook.pages.dev">
+<link rel="preconnect" href="https://cravatar.cn">
+<link rel="stylesheet" href="https://cf-guestbook.pages.dev/widget.css">
+{{- /* 懒加载：当留言板容器即将进入视口时再加载 widget.js */ -}}
+<script>
+(function() {
+  var widgetUrl = 'https://cf-guestbook.pages.dev/widget.js';
+  var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+      if (entry.isIntersecting) {
+        observer.disconnect();
+        var script = document.createElement('script');
+        script.src = widgetUrl;
+        script.defer = true;
+        document.head.appendChild(script);
+      }
+    });
+  }, { rootMargin: '200px' });
+
+  document.querySelectorAll('liuyan-board, [id^="liuyanban-"]').forEach(function(el) {
+    observer.observe(el);
+  });
+
+  {{- /* 降级：不支持 IntersectionObserver 的浏览器直接 defer 加载 */ -}}
+  if (!('IntersectionObserver' in window)) {
+    var s = document.createElement('script');
+    s.src = widgetUrl; s.defer = true;
+    document.head.appendChild(s);
+  }
+})();
+</script>
+{{- end }}

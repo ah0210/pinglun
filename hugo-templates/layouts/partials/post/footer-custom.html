@@ -1,0 +1,19 @@
+<!-- Hugo: layouts/partials/post/footer-custom.html -->
+<!-- 文章底部自动嵌入留言板 -->
+{{- if .Site.Params.guestbook.enable | default false }}
+{{- if .Params.guestbook | default true }}
+<div id="liuyanban-{{ md5 .RelPermalink }}"></div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    LiuyanBoard.init({
+      container: '#liuyanban-{{ md5 .RelPermalink }}',
+      pageId: '{{ .RelPermalink }}',
+      apiBase: '{{ .Site.Params.guestbook.apiBase | default "https://cf-guestbook.pages.dev/api/v1" }}',
+      siteKey: '{{ .Site.Params.guestbook.siteKey }}',
+      theme: '{{ .Site.Params.guestbook.theme | default "auto" }}',
+      maxLength: {{ .Site.Params.guestbook.maxLength | default 500 }}
+    });
+  });
+</script>
+{{- end }}
+{{- end }}

@@ -1,0 +1,21 @@
+<!-- Hugo: layouts/shortcodes/guestbook.html -->
+<!-- 自定义短代码：手动插入留言板 -->
+{{- $apiBase := .Site.Params.guestbook.apiBase | default "https://cf-guestbook.pages.dev/api/v1" -}}
+{{- $siteKey := .Site.Params.guestbook.siteKey -}}
+{{- $theme := .Site.Params.guestbook.theme | default "auto" -}}
+{{- $maxLength := .Site.Params.guestbook.maxLength | default 500 -}}
+{{- $pageId := .Get "pageId" | default .Page.RelPermalink -}}
+
+<div id="liuyanban-{{ md5 $pageId }}"></div>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    LiuyanBoard.init({
+      container: '#liuyanban-{{ md5 $pageId }}',
+      pageId: '{{ $pageId }}',
+      apiBase: '{{ $apiBase }}',
+      siteKey: '{{ $siteKey }}',
+      theme: '{{ $theme }}',
+      maxLength: {{ $maxLength }}
+    });
+  });
+</script>
