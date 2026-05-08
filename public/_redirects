@@ -1,3 +1,2 @@
 / /admin/ 302
-/admin/* /admin/index.html 200
-/webadmin/* /admin/index.html 200
+/webadmin/* /admin/ 302

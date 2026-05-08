@@ -1,5 +1,5 @@
 // src/admin/router/index.ts — 管理后台路由配置
-import { createRouter, createWebHistory } from 'vue-router';
+import { createRouter, createWebHashHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 
 const routes = [
@@ -25,7 +25,7 @@ const routes = [
 ];
 
 const router = createRouter({
-  history: createWebHistory('/admin/'),
+  history: createWebHashHistory('/admin/'),
   routes,
 });
 
