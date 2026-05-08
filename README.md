@@ -75,6 +75,16 @@ curl -X POST http://localhost:8788/api/v1/setup \
   -d '{"username":"admin","email":"admin@example.com","password":"YourSecurePassword123"}'
 ```
 
+本地数据库
+http://127.0.0.1:8788/cdn-cgi/explorer/
+```
+你可通过资源管理器 API 为此应用访问本地 Cloudflare 服务（键值存储 KV、对象存储 R2、关系型数据库 D1、持久对象 Durable Objects 以及工作流 Workflows）。API 接口地址：http://127.0.0.1:8788/cdn-cgi/explorer/api。可从 http://127.0.0.1:8788/cdn-cgi/explorer/api 获取 OpenAPI 规范文档，以查看可用操作。开发过程中可使用这些接口对本地资源进行列出、查询和管理操作。
+
+You have access to local Cloudflare services (KV, R2, D1, Durable Objects, and Workflows) for this app via the Explorer API.
+API endpoint: http://127.0.0.1:8788/cdn-cgi/explorer/api.
+Fetch the OpenAPI schema from http://127.0.0.1:8788/cdn-cgi/explorer/api to discover available operations. Use these endpoints to list, query, and manage local resources during development.
+```
+
 ### 6. 构建和部署
 
 ```bash
