@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler pages dev -- vite",
+    "dev": "pnpm run build && wrangler pages dev dist",
     "build:widget": "vite build --config vite.widget.config.ts",
     "build:admin": "vite build --config vite.admin.config.ts",
     "build": "pnpm run build:widget && pnpm run build:admin",
@@ -16,16 +16,16 @@
     "db:seed:remote": "wrangler d1 execute guestbook --remote --file=sql/002_seed.sql"
   },
   "dependencies": {
-    "vue": "^3.5.0",
-    "vue-router": "^4.4.0",
+    "naive-ui": "^2.40.0",
     "pinia": "^2.2.0",
-    "naive-ui": "^2.40.0"
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241004.0",
     "@vitejs/plugin-vue": "^5.1.0",
     "typescript": "^5.6.0",
     "vite": "^5.4.0",
-    "wrangler": "^3.80.0",
-    "@cloudflare/workers-types": "^4.20241004.0"
+    "wrangler": "^4.90.0"
   }
 }

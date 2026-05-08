@@ -63,9 +63,11 @@ pnpm run db:seed
 pnpm run dev
 ```
 
+`pnpm run dev` 会先构建到 `dist/`，再通过 `wrangler pages dev dist` 启动本地 Pages 环境。Wrangler 会输出类似 `Ready on http://127.0.0.1:8788` 的地址，本地调试访问 `http://127.0.0.1:8788/`；后台地址为 `/admin/`，API 地址仍为 `/api/v1`。
+
 ### 5. 初始化管理员
 
-访问 `http://localhost:8788/api/v1/setup` 或 POST 请求创建管理员：
+向 `http://localhost:8788/api/v1/setup` 发送 POST 请求创建管理员。不能直接在浏览器地址栏访问该接口，因为地址栏会发送 GET 请求。
 
 ```bash
 curl -X POST http://localhost:8788/api/v1/setup \
