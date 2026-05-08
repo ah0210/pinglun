@@ -4,9 +4,9 @@ import { verifyTurnstile } from '../../../../lib/turnstile';
 import { escapeHtml } from '../../../../lib/sanitize';
 import { cacheHeaders, noCacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse, paginatedResponse } from '../../../../lib/response';
-import { toPublicUser, toPublicMessage } from '../../../../lib/types';
+import { toPublicUser } from '../../../../lib/types';
 import { getAvatarUrl } from '../../../../lib/avatar';
-import type { Env, DbMessage, DbUser, JwtPayload } from '../../../../lib/types';
+import type { DbMessage } from '../../../../lib/types';
 
 // GET — 留言列表（公开，CDN 缓存 60s，秘密留言按权限过滤）
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
@@ -102,8 +102,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 获取配置
   const config = await env.DB.prepare(
-    'SELECT max_message_length, require_captcha, daily_secret_limit FROM board_config WHERE id = 1'
-  ).first<{ max_message_length: number; require_captcha: number; daily_secret_limit: number }>();
+    'SELECT max_message_length, require_captcha, daily_secret_limit, moderation_enabled FROM board_config WHERE id = 1'
+  ).first<{ max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number }>();
 
   const maxLength = config?.max_message_length || 500;
 

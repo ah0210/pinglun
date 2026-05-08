@@ -1,7 +1,7 @@
 // src/widget/composables/useAuth.ts — 认证状态管理
 
 import { ref, computed } from 'vue';
-import { apiPost, apiGet, setAccessToken, getAccessToken, clearAuth } from '../../shared/api';
+import { apiPost, apiGet, apiPatch, setAccessToken, getAccessToken, clearAuth } from '../../shared/api';
 import type { PublicUser } from '../../shared/types';
 
 const user = ref<PublicUser | null>(null);

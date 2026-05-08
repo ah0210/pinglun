@@ -92,7 +92,7 @@ export async function apiRequest<T>(
     credentials: 'include', // Cookie
   });
 
-  const data = await resp.json();
+  const data = await resp.json() as ApiResponse<T>;
 
   // Token 过期，自动刷新
   if (resp.status === 401 && data.error?.code === 1002) {
@@ -106,7 +106,7 @@ export async function apiRequest<T>(
         headers,
         credentials: 'include',
       });
-      return retryResp.json();
+      return retryResp.json() as Promise<ApiResponse<T>>;
     }
   }
 

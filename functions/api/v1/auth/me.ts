@@ -1,9 +1,9 @@
 // functions/api/v1/auth/me.ts — 当前用户信息 / 修改资料
 import { apiHandler } from '../../../../lib/middleware';
 import { getAvatarUrl } from '../../../../lib/avatar';
-import { sanitizeUsername } from '../../../../lib/sanitize';
+import { escapeHtml, sanitizeUsername } from '../../../../lib/sanitize';
 import { successResponse, errorResponse, ErrorCode } from '../../../../lib/response';
-import type { Env, DbUser, JwtPayload } from '../../../../lib/types';
+import type { DbUser } from '../../../../lib/types';
 
 // GET — 获取当前用户信息
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {

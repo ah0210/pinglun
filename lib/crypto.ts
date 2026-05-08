@@ -16,6 +16,10 @@ function fromBase64(str: string): Uint8Array {
   return bytes;
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const keyMaterial = await crypto.subtle.importKey(
@@ -48,7 +52,7 @@ export async function verifyPassword(password: string, storedHash: string): Prom
     ['deriveBits']
   );
   const derived = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations, hash: HASH_ALGO },
+    { name: 'PBKDF2', salt: toArrayBuffer(salt), iterations, hash: HASH_ALGO },
     keyMaterial,
     KEY_LENGTH
   );

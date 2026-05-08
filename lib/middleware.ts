@@ -50,7 +50,7 @@ export function getRefreshTokenFromCookie(request: Request): string | null {
 
 /** 通用 API 处理器封装 — 自动处理 CORS、预检、错误 */
 export function apiHandler(
-  handler: (request: Request, env: Env, ctx: ExecutionContext, user?: JwtPayload) => Promise<Response>,
+  handler: (request: Request, env: Env, ctx: EventContext<Env, any, Record<string, unknown>>, user?: JwtPayload) => Promise<Response>,
   options?: { requireAuth?: boolean; requireAdmin?: boolean }
 ): PagesFunctionEnv {
   return async (context) => {

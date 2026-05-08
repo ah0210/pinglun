@@ -1,12 +1,12 @@
 // functions/api/v1/admin/messages/[id].ts — 审核/删除留言
-import { apiHandler, getClientIp } from '../../../../lib/middleware';
-import { logAdminAction } from '../../../../lib/admin-log';
-import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
-import type { Env, DbMessage, JwtPayload } from '../../../../lib/types';
+import { apiHandler, getClientIp } from '../../../../../lib/middleware';
+import { logAdminAction } from '../../../../../lib/admin-log';
+import { ErrorCode, errorResponse, successResponse } from '../../../../../lib/response';
+import type { Env, DbMessage, JwtPayload } from '../../../../../lib/types';
 
 // PATCH — 审核留言
 export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
-  const id = ctx.params.id;
+  const id = Array.isArray(ctx.params.id) ? ctx.params.id[0] : ctx.params.id;
   const body = await request.json() as { status: string };
 
   if (!['approved', 'rejected'].includes(body.status)) {
@@ -32,7 +32,7 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
 
 // DELETE — 删除留言
 export const onRequestDelete = apiHandler(async (request, env, ctx, user) => {
-  const id = ctx.params.id;
+  const id = Array.isArray(ctx.params.id) ? ctx.params.id[0] : ctx.params.id;
 
   const message = await env.DB.prepare('SELECT id FROM messages WHERE id = ?').bind(id).first();
   if (!message) {

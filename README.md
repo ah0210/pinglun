@@ -23,7 +23,8 @@
 - [ ] 创建 D1 数据库（名称 `guestbook`）
 - [ ] 创建 [Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile) 应用
 - [ ] 注册 [Resend](https://resend.com) 获取 API Key
-- [ ] 安装 Wrangler CLI：`npm install -g wrangler && wrangler login`
+- [ ] 安装依赖管理器：`corepack enable`
+- [ ] 登录 Cloudflare：`pnpm exec wrangler login`
 - [ ] 创建 GitHub 仓库
 
 ### 2. 配置环境
@@ -34,7 +35,7 @@ git clone https://github.com/你的用户名/cf-guestbook.git
 cd cf-guestbook
 
 # 安装依赖
-npm install
+pnpm install
 
 # 复制环境变量模板
 cp .dev.vars.example .dev.vars
@@ -55,11 +56,11 @@ EMAIL_DOMAIN = "你的Resend验证域名"
 
 ```bash
 # 初始化本地数据库
-npm run db:init
-npm run db:seed
+pnpm run db:init
+pnpm run db:seed
 
 # 启动本地开发服务器
-npm run dev
+pnpm run dev
 ```
 
 ### 5. 初始化管理员
@@ -69,14 +70,17 @@ npm run dev
 ```bash
 curl -X POST http://localhost:8788/api/v1/setup \
   -H "Content-Type: application/json" \
-  -d '{"username":"ah","email":"163828@qq.com","password":"youliuyanban88"}'
+  -d '{"username":"admin","email":"admin@example.com","password":"YourSecurePassword123"}'
 ```
 
 ### 6. 构建和部署
 
 ```bash
 # 构建
-npm run build
+pnpm run build
+
+# 类型检查
+pnpm run typecheck
 
 # 部署到 Cloudflare Pages
 # 方式一：通过 Git 连接 Pages 自动部署
@@ -84,11 +88,13 @@ npm run build
 wrangler pages deploy dist
 ```
 
+管理后台构建入口为 `/admin/index.html`，部署后可访问 `/admin/`。`public/_redirects` 已配置 `/admin/*` 回退到后台入口，支持刷新后台子路由。
+
 ### 7. 远程数据库初始化
 
 ```bash
-npm run db:init:remote
-npm run db:seed:remote
+pnpm run db:init:remote
+pnpm run db:seed:remote
 ```
 
 ### 8. 设置生产密钥

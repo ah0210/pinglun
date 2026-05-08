@@ -1,9 +1,9 @@
 // functions/api/v1/admin/messages/index.ts — 留言管理列表
-import { apiHandler } from '../../../../lib/middleware';
-import { paginatedResponse } from '../../../../lib/response';
-import { getAvatarUrl } from '../../../../lib/avatar';
-import { noCacheHeaders } from '../../../../lib/cache-headers';
-import type { Env, DbMessage, JwtPayload } from '../../../../lib/types';
+import { apiHandler } from '../../../../../lib/middleware';
+import { paginatedResponse } from '../../../../../lib/response';
+import { getAvatarUrl } from '../../../../../lib/avatar';
+import { noCacheHeaders } from '../../../../../lib/cache-headers';
+import type { Env, DbMessage, JwtPayload } from '../../../../../lib/types';
 
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const url = new URL(request.url);

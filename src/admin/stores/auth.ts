@@ -1,7 +1,7 @@
 // src/admin/stores/auth.ts — Pinia 认证状态管理
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { PublicUser } from '../../shared/types';
+import type { ApiResponse, PublicUser } from '../../shared/types';
 
 const API_BASE = '/api/v1';
 
@@ -33,7 +33,7 @@ export const useAuthStore = defineStore('auth', () => {
       });
 
       if (resp.ok) {
-        const data = await resp.json();
+        const data = await resp.json() as ApiResponse<PublicUser>;
         if (data.success && data.data) {
           user.value = data.data;
           if (data.data.role !== 'admin') {
@@ -61,7 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (!resp.ok) return false;
 
-      const data = await resp.json();
+      const data = await resp.json() as ApiResponse<{ accessToken: string; user: PublicUser }>;
       if (data.success && data.data) {
         setAuth(data.data.accessToken, data.data.user);
         return data.data.user.role === 'admin';
@@ -81,7 +81,7 @@ export const useAuthStore = defineStore('auth', () => {
       body: JSON.stringify({ login, password, turnstileToken }),
     });
 
-    const data = await resp.json();
+    const data = await resp.json() as ApiResponse<{ accessToken: string; user: PublicUser }>;
 
     if (data.success && data.data) {
       if (data.data.user.role !== 'admin') {

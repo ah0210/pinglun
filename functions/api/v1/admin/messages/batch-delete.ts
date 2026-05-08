@@ -1,8 +1,8 @@
 // functions/api/v1/admin/messages/batch-delete.ts — 批量删除留言
-import { apiHandler, getClientIp } from '../../../../lib/middleware';
-import { logAdminAction } from '../../../../lib/admin-log';
-import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
-import type { Env, JwtPayload } from '../../../../lib/types';
+import { apiHandler, getClientIp } from '../../../../../lib/middleware';
+import { logAdminAction } from '../../../../../lib/admin-log';
+import { ErrorCode, errorResponse, successResponse } from '../../../../../lib/response';
+import type { Env, JwtPayload } from '../../../../../lib/types';
 
 export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const body = await request.json() as { ids: number[] };

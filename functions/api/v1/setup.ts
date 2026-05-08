@@ -1,10 +1,10 @@
 // functions/api/v1/setup.ts — 初始化管理员账号（仅首次部署时可用）
-import { apiHandler } from '../../../../lib/middleware';
-import { hashPassword } from '../../../../lib/crypto';
-import { getAvatarUrl } from '../../../../lib/avatar';
-import { sanitizeUsername, sanitizeEmail } from '../../../../lib/sanitize';
-import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
-import type { Env } from '../../../../lib/types';
+import { apiHandler } from '../../../lib/middleware';
+import { hashPassword } from '../../../lib/crypto';
+import { getAvatarUrl } from '../../../lib/avatar';
+import { sanitizeUsername, sanitizeEmail } from '../../../lib/sanitize';
+import { ErrorCode, errorResponse, successResponse } from '../../../lib/response';
+import type { Env } from '../../../lib/types';
 
 /** 密码强度校验：至少 8 位，包含字母和数字 */
 function validatePasswordStrength(password: string): string | null {

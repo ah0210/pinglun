@@ -1,13 +1,13 @@
 // functions/api/v1/config.ts — 留言板公开配置
-import { apiHandler } from '../../../../lib/middleware';
-import { successResponse } from '../../../../lib/response';
-import { cacheHeaders } from '../../../../lib/cache-headers';
-import type { Env, DbBoardConfig } from '../../../../lib/types';
+import { apiHandler } from '../../../lib/middleware';
+import { successResponse } from '../../../lib/response';
+import { cacheHeaders } from '../../../lib/cache-headers';
+import type { Env, DbBoardConfig } from '../../../lib/types';
 
 export const onRequestGet = apiHandler(async (request, env) => {
   const config = await env.DB.prepare(
     'SELECT site_name, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration FROM board_config WHERE id = 1'
-  ).first();
+  ).first<DbBoardConfig>();
 
   if (!config) {
     return successResponse({
@@ -21,7 +21,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
     }, cacheHeaders(300));
   }
 
-  const c = config as DbBoardConfig;
+  const c = config;
   return successResponse({
     siteName: c.site_name,
     maxMessageLength: c.max_message_length,

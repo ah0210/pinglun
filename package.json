@@ -8,6 +8,7 @@
     "build:widget": "vite build --config vite.widget.config.ts",
     "build:admin": "vite build --config vite.admin.config.ts",
     "build": "pnpm run build:widget && pnpm run build:admin",
+    "typecheck": "tsc --noEmit",
     "preview": "wrangler pages dev dist",
     "db:init": "wrangler d1 execute guestbook --local --file=sql/001_init.sql",
     "db:seed": "wrangler d1 execute guestbook --local --file=sql/002_seed.sql",

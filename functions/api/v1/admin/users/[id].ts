@@ -1,11 +1,12 @@
 // functions/api/v1/admin/users/[id].ts — 变更用户角色/状态
-import { apiHandler, getClientIp } from '../../../../lib/middleware';
-import { logAdminAction } from '../../../../lib/admin-log';
-import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
-import type { Env, DbUser, JwtPayload } from '../../../../lib/types';
+import { apiHandler, getClientIp } from '../../../../../lib/middleware';
+import { logAdminAction } from '../../../../../lib/admin-log';
+import { ErrorCode, errorResponse, successResponse } from '../../../../../lib/response';
+import type { Env, DbUser, JwtPayload } from '../../../../../lib/types';
 
 export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
-  const id = parseInt(ctx.params.id, 10);
+  const rawId = Array.isArray(ctx.params.id) ? ctx.params.id[0] : ctx.params.id;
+  const id = parseInt(rawId, 10);
   const body = await request.json() as { role?: string; status?: string };
 
   if (id === user!.userId) {
