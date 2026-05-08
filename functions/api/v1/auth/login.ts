@@ -19,7 +19,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
     turnstileToken: string;
   };
 
-  if (!body.login || !body.password || !body.turnstileToken) {
+  if (!body.login || !body.password) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写所有必填字段', 400);
   }
 
@@ -31,10 +31,12 @@ export const onRequestPost = apiHandler(async (request, env) => {
     return errorResponse(ErrorCode.RATE_LIMITED, `登录失败次数过多，请 ${remaining} 秒后重试`, 429);
   }
 
-  // Turnstile 验证
-  const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
-  if (!turnstileValid) {
-    return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败，请重试', 400);
+  // Turnstile 验证（仅当配置了密钥且提交了 token 时）
+  if (body.turnstileToken && env.TURNSTILE_SECRET_KEY) {
+    const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
+    if (!turnstileValid) {
+      return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败，请重试', 400);
+    }
   }
 
   // 查找用户（用户名或邮箱）
