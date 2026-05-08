@@ -59,14 +59,104 @@ EMAIL_DOMAIN = "你的Resend验证域名"
 pnpm run db:init
 pnpm run db:seed
 
-# 启动本地开发服务器
+# 启动本地开发服务器（先构建再启动）
 pnpm run dev
 ```
 
 `pnpm run dev` 会先构建到 `dist/`，再通过 `wrangler pages dev dist` 启动本地 Pages 环境。
 Wrangler 会输出类似 `Ready on http://127.0.0.1:8788` 的地址，本地调试访问 `http://127.0.0.1:8788/`；后台地址为 `/admin/`，API 地址仍为 `/api/v1`。
 
-### 5. 初始化管理员
+#### 本地数据库管理
+
+```bash
+# 查询数据
+npx wrangler d1 execute guestbook --local --command "SELECT * FROM users"
+npx wrangler d1 execute guestbook --local --command "SELECT * FROM board_config"
+
+# 执行 SQL 文件
+npx wrangler d1 execute guestbook --local --file=sql/001_init.sql
+
+# 增删改
+npx wrangler d1 execute guestbook --local --command "DELETE FROM users WHERE id = 1"
+
+# 重置本地数据库：删除 .wrangler/state/v3/d1 目录后重新执行
+pnpm run db:init && pnpm run db:seed
+
+# 操作远程数据库（加 --remote，需先 wrangler login）
+npx wrangler d1 execute guestbook --remote --command "SELECT * FROM users"
+```
+
+### 5. 本地测试 Widget 嵌入
+
+如果需要在本地 Hugo 站点中测试留言板 Widget，需额外配置：
+
+#### 5.1 修改 `.dev.vars`
+
+```bash
+# 添加本地 CORS 来源（Hugo 默认端口 1313）
+ALLOWED_ORIGINS=http://localhost:1313,https://你的生产域名
+
+# Turnstile 不支持 localhost，改用 Cloudflare 官方测试密钥（验证码自动通过）
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+#### 5.2 启动两个服务
+
+```bash
+# 终端 1：启动留言板后端
+pnpm build && npx wrangler pages dev dist
+
+# 终端 2：启动 Hugo 站点
+hugo server
+```
+
+#### 5.3 Hugo 模板中 Widget 配置
+
+确保 Hugo 模板中的 widget 指向本地服务：
+
+```html
+<guestbook-widget
+  api-base="http://localhost:8788"
+  site-key="1x00000000000000000000AA"
+  page-id="/your-page"
+/>
+```
+
+#### 5.4 快速验证 Widget 是否正常
+
+在浏览器中访问以下地址，页面会自动检测 API/JS/CSS 是否可用并渲染留言板：
+
+```
+http://localhost:8788/test-widget.html
+```
+
+> 如需此测试页面，将以下 HTML 保存到 `dist/test-widget.html`：
+> ```html
+> <!DOCTYPE html>
+> <html lang="zh-CN"><head><meta charset="UTF-8"><title>留言板测试</title></head>
+> <body style="max-width:800px;margin:40px auto;font-family:sans-serif">
+>   <h2>留言板 Widget 测试</h2>
+>   <div id="status">检测中...</div><hr>
+>   <link rel="stylesheet" href="/widget.css">
+>   <script src="/widget.js"></script>
+>   <guestbook-widget api-base="/" site-key="1x00000000000000000000AA" page-id="/test"/>
+>   <script>
+>     Promise.all([
+>       fetch('/api/v1/config').then(r=>r.ok),
+>       fetch('/widget.js').then(r=>r.ok),
+>       fetch('/widget.css').then(r=>r.ok),
+>     ]).then(([api,js,css])=>{
+>       const el=document.getElementById('status');
+>       if(api&&js&&css){el.innerHTML='✅ API: 正常 | JS: 正常 | CSS: 正常';el.style.color='green';}
+>       else{el.innerHTML=`❌ API:${api?'OK':'失败'} | JS:${js?'OK':'失败'} | CSS:${css?'OK':'失败'}`;el.style.color='red';}
+>     }).catch(()=>{document.getElementById('status').innerHTML='❌ 服务未运行';document.getElementById('status').style.color='red';});
+>   </script>
+> </body></html>
+> ```
+> 测试完后删除此文件。
+
+### 6. 初始化管理员
 
 向 `http://localhost:8788/api/v1/setup` 发送 POST 请求创建管理员。不能直接在浏览器地址栏访问该接口，因为地址栏会发送 GET 请求。
 
@@ -76,17 +166,11 @@ curl -X POST http://localhost:8788/api/v1/setup \
   -d '{"username":"admin","email":"admin@example.com","password":"YourSecurePassword123"}'
 ```
 
-本地数据库
-http://127.0.0.1:8788/cdn-cgi/explorer/
-```
-你可通过资源管理器 API 为此应用访问本地 Cloudflare 服务（键值存储 KV、对象存储 R2、关系型数据库 D1、持久对象 Durable Objects 以及工作流 Workflows）。API 接口地址：http://127.0.0.1:8788/cdn-cgi/explorer/api。可从 http://127.0.0.1:8788/cdn-cgi/explorer/api 获取 OpenAPI 规范文档，以查看可用操作。开发过程中可使用这些接口对本地资源进行列出、查询和管理操作。
+也可以通过 `.dev.vars` 中的 `ADMIN_USERNAME`、`ADMIN_EMAIL`、`ADMIN_PASSWORD` 环境变量设置默认值，setup 接口会自动读取。
 
-You have access to local Cloudflare services (KV, R2, D1, Durable Objects, and Workflows) for this app via the Explorer API.
-API endpoint: http://127.0.0.1:8788/cdn-cgi/explorer/api.
-Fetch the OpenAPI schema from http://127.0.0.1:8788/cdn-cgi/explorer/api to discover available operations. Use these endpoints to list, query, and manage local resources during development.
-```
+本地数据库资源管理器：`http://127.0.0.1:8788/cdn-cgi/explorer/`
 
-### 6. 构建和部署
+### 7. 构建和部署
 
 ```bash
 # 构建
@@ -103,14 +187,14 @@ wrangler pages deploy dist
 
 管理后台构建入口为 `/admin/index.html`，部署后可访问 `/admin/`。`public/_redirects` 已配置 `/admin/*` 回退到后台入口，支持刷新后台子路由。
 
-### 7. 远程数据库初始化
+### 8. 远程数据库初始化
 
 ```bash
 pnpm run db:init:remote
 pnpm run db:seed:remote
 ```
 
-### 8. 设置生产密钥
+### 9. 设置生产密钥
 
 ```bash
 wrangler secret put JWT_SECRET
