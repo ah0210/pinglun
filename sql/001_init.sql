@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS board_config (
   id                   INTEGER PRIMARY KEY CHECK (id = 1),
   site_name            TEXT DEFAULT '留言板',
+  min_message_length   INTEGER DEFAULT 2,
   max_message_length   INTEGER DEFAULT 500,
   require_captcha      INTEGER DEFAULT 1,
   moderation_enabled   INTEGER DEFAULT 0,

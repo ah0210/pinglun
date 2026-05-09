@@ -7,6 +7,9 @@
         <n-form-item label="站点名称">
           <n-input v-model:value="config.siteName" />
         </n-form-item>
+        <n-form-item label="留言最少字数">
+          <n-input-number v-model:value="config.minMessageLength" :min="1" :max="50" />
+        </n-form-item>
         <n-form-item label="留言最大长度">
           <n-input-number v-model:value="config.maxMessageLength" :min="100" :max="5000" />
         </n-form-item>
@@ -45,6 +48,7 @@ const saving = ref(false);
 
 const config = reactive<AdminConfig>({
   siteName: '留言板',
+  minMessageLength: 2,
   maxMessageLength: 500,
   requireCaptcha: true,
   moderationEnabled: false,

@@ -28,9 +28,11 @@
       :api-base="resolvedApiBase"
       :page-id="pageId"
       :site-key="resolvedSiteKey"
+      :min-length="minLength"
       :max-length="maxLength"
       :require-captcha="config?.requireCaptcha !== false"
       :messages="messages"
+      :current-user="auth.user.value"
     />
 
     <!-- 留言列表 -->
@@ -80,6 +82,7 @@ const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.s
 
 // 优先使用 config 返回的 maxMessageLength
 const maxLength = computed(() => config.value?.maxMessageLength || props.maxLength || 500);
+const minLength = computed(() => config.value?.minMessageLength || 2);
 
 const { effectiveTheme } = useTheme(props.theme || 'auto');
 
@@ -91,6 +94,9 @@ watch(effectiveTheme, (t) => {
 
 const auth = useAuth(resolvedApiBase.value);
 const messages = useMessages(resolvedApiBase.value);
+
+// 从 useMessages 获取 config（方便模板和 computed 引用）
+const config = messages.config;
 
 onMounted(async () => {
   // 获取配置

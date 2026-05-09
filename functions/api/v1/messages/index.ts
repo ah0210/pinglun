@@ -1,12 +1,12 @@
 // functions/api/v1/messages/index.ts — 留言列表 + 提交留言
 import { apiHandler } from '../../../../lib/middleware';
-import { verifyTurnstile } from '../../../../lib/turnstile';
+import { verifyTurnstile, isTestKey } from '../../../../lib/turnstile';
 import { escapeHtml } from '../../../../lib/sanitize';
 import { cacheHeaders, noCacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse, paginatedResponse } from '../../../../lib/response';
 import { toPublicUser } from '../../../../lib/types';
 import { getAvatarUrl } from '../../../../lib/avatar';
-import type { DbMessage } from '../../../../lib/types';
+import type { DbMessage, PublicUser } from '../../../../lib/types';
 
 // GET — 留言列表（公开，CDN 缓存 60s，秘密留言按权限过滤）
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
@@ -16,18 +16,25 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 50);
 
   // 构建查询条件
-  let whereClause = 'WHERE m.page_id = ? AND m.status = ?';
-  const binds: unknown[] = [pageId, 'approved'];
+  let whereClause: string;
+  const binds: unknown[] = [pageId];
 
-  if (!user) {
-    // 未登录：只看公开留言
-    whereClause += ' AND m.is_secret = 0';
-  } else if (user.role !== 'admin') {
-    // 普通用户：公开留言 + 自己的秘密留言
-    whereClause += ` AND (m.is_secret = 0 OR (m.is_secret = 1 AND m.user_id = ?))`;
-    binds.push(user.userId);
+  if (user?.role === 'admin') {
+    // 管理员：看所有状态的留言
+    whereClause = 'WHERE m.page_id = ?';
+  } else if (user) {
+    // 登录用户：approved 留言 + 自己的 pending 留言
+    whereClause = 'WHERE m.page_id = ? AND (m.status = ? OR (m.status = ? AND m.user_id = ?))';
+    binds.push('approved', 'pending', user.userId);
+  } else {
+    // 未登录：只看 approved
+    whereClause = 'WHERE m.page_id = ? AND m.status = ?';
+    binds.push('approved');
   }
-  // 管理员：看所有留言
+
+  // 未登录：也能看到秘密留言条目（内容会被替换为占位文字）
+  // 普通用户：公开留言 + 自己的秘密留言可见内容，他人的秘密留言内容隐藏
+  // 管理员：看所有留言原内容
 
   // 计算总数
   const countResult = await env.DB.prepare(
@@ -61,9 +68,11 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
 
     let content = m.content;
 
-    // 非管理员看到他人的秘密留言时替换内容
-    if (m.is_secret === 1 && user && user.role !== 'admin' && m.user_id !== user.userId) {
-      content = '[这是一条秘密留言]';
+    // 秘密留言：仅留言者和管理员可见内容，其他人看到占位文字
+    if (m.is_secret === 1) {
+      if (!user || (user.role !== 'admin' && m.user_id !== user.userId)) {
+        content = '🔒 这是一条秘密留言';
+      }
     }
 
     return {
@@ -102,18 +111,27 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 获取配置
   const config = await env.DB.prepare(
-    'SELECT max_message_length, require_captcha, daily_secret_limit, moderation_enabled FROM board_config WHERE id = 1'
-  ).first<{ max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number }>();
+    'SELECT min_message_length, max_message_length, require_captcha, daily_secret_limit, moderation_enabled FROM board_config WHERE id = 1'
+  ).first<{ min_message_length: number; max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number }>();
 
+  const minLength = config?.min_message_length || 2;
   const maxLength = config?.max_message_length || 500;
 
   // 验证留言长度
+  if (body.content.trim().length < minLength) {
+    return errorResponse(ErrorCode.MESSAGE_TOO_SHORT, `留言至少需要 ${minLength} 个字`, 400);
+  }
   if (body.content.length > maxLength) {
     return errorResponse(ErrorCode.MESSAGE_TOO_LONG, `留言不能超过 ${maxLength} 字`, 400);
   }
 
-  // 验证码检查
-  if (config?.require_captcha) {
+  // 连续相同字符检查（超过5个连续相同字符则拒绝）
+  if (/(.)\1{5,}/.test(body.content)) {
+    return errorResponse(ErrorCode.MESSAGE_REPEATED_CHARS, '留言不能包含过多连续重复字符', 400);
+  }
+
+  // 验证码检查（测试密钥环境跳过空 token 检查，因为本地 Turnstile widget 可能无法渲染）
+  if (config?.require_captcha && !isTestKey(env.TURNSTILE_SECRET_KEY || '')) {
     if (!body.turnstileToken) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }
@@ -149,12 +167,28 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     `INSERT INTO messages (user_id, page_id, content, is_secret, status) VALUES (?, ?, ?, ?, ?)`
   ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, status).run();
 
-  return successResponse({
-    id: result.meta.last_row_id,
-    content,
+  // 返回完整消息对象，便于前端乐观更新
+  const publicUser: PublicUser = {
+    id: user.userId,
+    username: user.username,
+    displayName: user.username,
+    avatar: '',
+    role: user.role,
+  };
+  const newMessage = {
+    id: result.meta.last_row_id as number,
     pageId: body.pageId,
+    content,
     isSecret: !!body.isSecret,
     status,
+    replyTo: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: null,
+    user: publicUser,
+  };
+
+  return successResponse({
+    ...newMessage,
     message: status === 'pending' ? '留言已提交，等待审核' : '留言发布成功',
   }, noCacheHeaders());
 }, { requireAuth: true });

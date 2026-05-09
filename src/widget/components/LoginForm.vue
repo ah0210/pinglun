@@ -74,7 +74,7 @@ const registerForm = ref({ username: '', email: '', password: '' });
 let loginWidgetId: string | undefined;
 let registerWidgetId: string | undefined;
 
-/** 在 document.body 上创建临时容器并用 invisible 模式渲染 Turnstile（兼容 Shadow DOM） */
+/** 在 document.body 上创建容器并用 execution:'execute' 模式渲染 Turnstile（兼容 Shadow DOM，替代已废弃的 invisible） */
 function renderTurnstile(action: 'login' | 'register'): Promise<string> {
   return new Promise((resolve) => {
     const turnstile = (window as any).turnstile;
@@ -89,17 +89,19 @@ function renderTurnstile(action: 'login' | 'register'): Promise<string> {
     if (!container) {
       container = document.createElement('div');
       container.id = containerId;
-      container.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;visibility:hidden;';
+      container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
       document.body.appendChild(container);
     }
 
     // 10 秒超时保护，防止 Promise 永远挂起
     const timeout = setTimeout(() => {
+      removeTurnstileContainer(action);
       resolve('');
     }, 10000);
 
     try {
-      turnstile.render(`#${containerId}`, {
+      // execution:'execute' 模式：先渲染，再手动触发验证
+      const widgetId = turnstile.render(`#${containerId}`, {
         sitekey: props.siteKey,
         callback: (token: string) => {
           clearTimeout(timeout);
@@ -109,8 +111,15 @@ function renderTurnstile(action: 'login' | 'register'): Promise<string> {
           clearTimeout(timeout);
           resolve('');
         },
-        size: 'invisible',
+        'expired-callback': () => {
+          clearTimeout(timeout);
+          resolve('');
+        },
+        size: 'compact',
+        execution: 'execute',
       });
+      // 手动触发验证
+      turnstile.execute(widgetId);
     } catch {
       clearTimeout(timeout);
       resolve('');

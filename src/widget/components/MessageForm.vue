@@ -12,7 +12,7 @@
       <button
         class="gb-btn gb-btn-primary"
         @click="handleSubmit"
-        :disabled="submitting || !content.trim()"
+        :disabled="submitting || !canSubmit"
       >
         {{ submitting ? '发送中...' : '发送留言' }}
       </button>
@@ -20,8 +20,9 @@
         <input type="checkbox" v-model="isSecret" />
         <span>🔒 秘密留言</span>
       </label>
-      <span class="gb-hint">{{ content.length }}/{{ maxLength }}</span>
+      <span class="gb-hint">{{ contentLen }}/{{ maxLength }}<template v-if="contentLen > 0 && contentLen < minLength"> (至少{{ minLength }}字)</template></span>
     </div>
+    <div v-if="contentLen >= minLength && /(.)\1{5,}/.test(content)" class="gb-error">留言不能包含过多连续重复字符</div>
     <div v-if="error" class="gb-error" style="margin-top:8px">{{ error }}</div>
   </div>
 </template>
@@ -34,6 +35,7 @@ const props = defineProps<{
   apiBase: string;
   pageId: string;
   siteKey: string;
+  minLength: number;
   maxLength: number;
   requireCaptcha: boolean;
   messages: ReturnType<typeof import('../composables/useMessages').useMessages>;
@@ -47,6 +49,14 @@ const error = ref('');
 
 const isAdmin = computed(() => props.currentUser?.role === 'admin');
 const placeholder = computed(() => isAdmin.value ? '以管理员身份留言...' : '写下你的留言...');
+
+const contentLen = computed(() => content.value.trim().length);
+const canSubmit = computed(() => {
+  if (!content.value.trim()) return false;
+  if (contentLen.value < props.minLength) return false;
+  if (/(.)\1{5,}/.test(content.value)) return false;
+  return true;
+});
 
 async function handleSubmit() {
   if (!content.value.trim()) return;
@@ -62,29 +72,40 @@ async function handleSubmit() {
         const containerId = `gb-turnstile-msg-${Date.now()}`;
         const el = document.createElement('div');
         el.id = containerId;
-        el.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;visibility:hidden;';
+        el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
         document.body.appendChild(el);
 
         const timeout = setTimeout(() => {
+          try { (window as any).turnstile.remove(containerId); } catch {}
           el.remove();
           resolve('');
         }, 10000);
 
         try {
-          (window as any).turnstile.render(`#${containerId}`, {
+          // execution:'execute' 模式：先渲染，再手动触发验证
+          const widgetId = (window as any).turnstile.render(`#${containerId}`, {
             sitekey: props.siteKey,
             callback: (token: string) => {
               clearTimeout(timeout);
+              try { (window as any).turnstile.remove(containerId); } catch {}
               el.remove();
               resolve(token);
             },
             'error-callback': () => {
               clearTimeout(timeout);
+              try { (window as any).turnstile.remove(containerId); } catch {}
               el.remove();
               resolve('');
             },
-            size: 'invisible',
+            'expired-callback': () => {
+              clearTimeout(timeout);
+              resolve('');
+            },
+            size: 'compact',
+            execution: 'execute',
           });
+          // 手动触发验证
+          (window as any).turnstile.execute(widgetId);
         } catch {
           clearTimeout(timeout);
           el.remove();

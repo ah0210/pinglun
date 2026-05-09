@@ -7,8 +7,9 @@
 - 🚀 Cloudflare Pages + D1 部署，全球 CDN 加速
 - 🔐 JWT 双 Token 认证（Access 15min + Refresh 7d HttpOnly Cookie）
 - 🎨 Web Component Widget，Shadow DOM 样式隔离，支持主题自动跟随
-- 📝 秘密留言功能（留言者 + 管理员可见）
-- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码
+- 📝 秘密留言功能（仅隐藏内容，用户信息正常展示）
+- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码、连续重复字符检测
+- 📏 留言字数限制（可配置最少/最多字数）
 - 📊 Naive UI 管理后台（留言审核、用户管理、系统配置、操作日志）
 - ✉️ Resend 邮件验证（同步调用，免费 100 封/天）
 - 🔄 CORS 跨域支持、Gravatar 头像自动生成、API 错误码体系统一
@@ -59,6 +60,9 @@ EMAIL_DOMAIN = "你的Resend验证域名"
 pnpm run db:init
 pnpm run db:seed
 
+# 如果是升级现有数据库，执行迁移
+pnpm run db:migrate
+
 # 启动本地开发服务器（先构建再启动）
 pnpm run dev
 ```
@@ -76,6 +80,9 @@ npx wrangler d1 execute guestbook --local --command "SELECT * FROM board_config"
 # 执行 SQL 文件
 npx wrangler d1 execute guestbook --local --file=sql/001_init.sql
 
+# 数据库迁移（升级已有数据库）
+pnpm run db:migrate
+
 # 增删改
 npx wrangler d1 execute guestbook --local --command "DELETE FROM users WHERE id = 1"
 
@@ -84,6 +91,7 @@ pnpm run db:init && pnpm run db:seed
 
 # 操作远程数据库（加 --remote，需先 wrangler login）
 npx wrangler d1 execute guestbook --remote --command "SELECT * FROM users"
+pnpm run db:migrate:remote
 ```
 
 ### 5. 本地测试 Widget 嵌入
@@ -96,7 +104,8 @@ npx wrangler d1 execute guestbook --remote --command "SELECT * FROM users"
 # 添加本地 CORS 来源（Hugo 默认端口 1313）
 ALLOWED_ORIGINS=http://localhost:1313,https://你的生产域名
 
-# Turnstile 不支持 localhost，改用 Cloudflare 官方测试密钥（验证码自动通过）
+# Turnstile 不支持 localhost，改用 Cloudflare 官方测试密钥
+# 1x...AA = 交互式挑战（测试用），2x...AA = 自动通过
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 ```
@@ -125,36 +134,16 @@ hugo server
 
 #### 5.4 快速验证 Widget 是否正常
 
-在浏览器中访问以下地址，页面会自动检测 API/JS/CSS 是否可用并渲染留言板：
-
+```bash
+# 一键构建 + 复制测试页 + 启动开发服务器
+pnpm run test:widget
 ```
-http://localhost:8788/test-widget.html
-```
 
-> 如需此测试页面，将以下 HTML 保存到 `dist/test-widget.html`：
-> ```html
-> <!DOCTYPE html>
-> <html lang="zh-CN"><head><meta charset="UTF-8"><title>留言板测试</title></head>
-> <body style="max-width:800px;margin:40px auto;font-family:sans-serif">
->   <h2>留言板 Widget 测试</h2>
->   <div id="status">检测中...</div><hr>
->   <link rel="stylesheet" href="/widget.css">
->   <script src="/widget.js"></script>
->   <guestbook-widget api-base="/" site-key="1x00000000000000000000AA" page-id="/test"/>
->   <script>
->     Promise.all([
->       fetch('/api/v1/config').then(r=>r.ok),
->       fetch('/widget.js').then(r=>r.ok),
->       fetch('/widget.css').then(r=>r.ok),
->     ]).then(([api,js,css])=>{
->       const el=document.getElementById('status');
->       if(api&&js&&css){el.innerHTML='✅ API: 正常 | JS: 正常 | CSS: 正常';el.style.color='green';}
->       else{el.innerHTML=`❌ API:${api?'OK':'失败'} | JS:${js?'OK':'失败'} | CSS:${css?'OK':'失败'}`;el.style.color='red';}
->     }).catch(()=>{document.getElementById('status').innerHTML='❌ 服务未运行';document.getElementById('status').style.color='red';});
->   </script>
-> </body></html>
-> ```
-> 测试完后删除此文件。
+或在浏览器中访问 `http://127.0.0.1:8788/test-widget.html`，页面会自动检测 API/JS/CSS 是否可用并渲染留言板。
+
+测试页面提供了两种 Widget 嵌入方式：
+- **JS 初始化**：通过 `GuestbookWidget.init()` API 动态创建
+- **HTML 标签**：直接使用 `<guestbook-widget>` 自定义元素
 
 ### 6. 初始化管理员
 
@@ -192,6 +181,8 @@ wrangler pages deploy dist
 ```bash
 pnpm run db:init:remote
 pnpm run db:seed:remote
+# 如需升级远程数据库
+pnpm run db:migrate:remote
 ```
 
 ### 9. 设置生产密钥
@@ -223,6 +214,7 @@ hugo-templates/
   siteKey = "你的Turnstile Site Key"
   theme = "auto"
   maxLength = 500
+  minLength = 2
 ```
 
 在文章 Front Matter 中可关闭留言板：

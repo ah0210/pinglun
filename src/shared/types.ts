@@ -25,6 +25,7 @@ export interface PublicMessage {
 
 export interface BoardConfig {
   siteName: string;
+  minMessageLength: number;
   maxMessageLength: number;
   requireCaptcha: boolean;
   moderationEnabled: boolean;
@@ -73,6 +74,7 @@ export interface AdminStats {
 // 管理后台配置
 export interface AdminConfig {
   siteName: string;
+  minMessageLength: number;
   maxMessageLength: number;
   requireCaptcha: boolean;
   moderationEnabled: boolean;

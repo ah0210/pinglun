@@ -12,12 +12,13 @@ export function useMessages(apiBase: string) {
   const loading = ref(false);
   const config = ref<BoardConfig | null>(null);
 
-  async function fetchMessages(pageId: string, pageNum = 1, limit = 20) {
-    loading.value = true;
+  async function fetchMessages(pageId: string, pageNum = 1, limit = 20, showLoading = true) {
+    if (showLoading) loading.value = true;
     try {
+      const cacheBust = showLoading ? '' : `&t=${Date.now()}`;
       const resp = await apiGet<PaginatedResponse<PublicMessage>>(
         apiBase,
-        `/messages?pageId=${encodeURIComponent(pageId)}&page=${pageNum}&limit=${limit}`
+        `/messages?pageId=${encodeURIComponent(pageId)}&page=${pageNum}&limit=${limit}${cacheBust}`
       );
 
       if (resp.success && resp.data) {
@@ -46,8 +47,8 @@ export function useMessages(apiBase: string) {
   }) {
     const resp = await apiPost<PublicMessage>(apiBase, '/messages', data);
     if (resp.success) {
-      // 刷新列表
-      await fetchMessages(data.pageId, page.value);
+      // 发帖成功后重新拉取列表（跳回第1页以显示最新留言）
+      await fetchMessages(data.pageId, 1, 20, false);
     }
     return resp;
   }

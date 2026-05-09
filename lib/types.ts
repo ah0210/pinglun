@@ -67,6 +67,7 @@ export interface DbRefreshToken {
 export interface DbBoardConfig {
   id: number;
   site_name: string;
+  min_message_length: number;
   max_message_length: number;
   require_captcha: number;
   moderation_enabled: number;

@@ -7,11 +7,12 @@
         <span class="gb-username">{{ message.user.displayName }}</span>
         <span v-if="message.user.role === 'admin'" class="gb-admin-badge">管理员</span>
         <span v-if="message.isSecret" class="gb-secret-badge">🔒 秘密</span>
+        <span v-if="message.status === 'pending'" class="gb-status-pending">⏳ 审核中</span>
         <span class="gb-time">{{ formatTime(message.createdAt) }}</span>
       </div>
     </div>
-    <p class="gb-message-content" :class="{ 'gb-secret-placeholder': isSecretPlaceholder }">
-      {{ message.content }}
+    <p class="gb-message-content" :class="{ 'gb-secret-placeholder': isSecretHidden }">
+      {{ isSecretHidden ? '🔒 这是一条秘密留言' : message.content }}
     </p>
   </li>
 </template>
@@ -25,9 +26,12 @@ const props = defineProps<{
   currentUser?: PublicUser | null;
 }>();
 
-const isSecretPlaceholder = computed(() => {
-  return props.message.isSecret &&
-    props.message.content === '[这是一条秘密留言]';
+const isSecretHidden = computed(() => {
+  if (!props.message.isSecret) return false;
+  // 留言者本人和管理员可见内容，不显示占位
+  if (props.currentUser?.role === 'admin') return false;
+  if (props.currentUser && props.currentUser.id === props.message.user.id) return false;
+  return true;
 });
 
 function formatTime(dateStr: string): string {

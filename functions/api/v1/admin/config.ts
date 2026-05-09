@@ -15,6 +15,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   return successResponse({
     siteName: config.site_name,
+    minMessageLength: config.min_message_length || 2,
     maxMessageLength: config.max_message_length,
     requireCaptcha: config.require_captcha === 1,
     moderationEnabled: config.moderation_enabled === 1,
@@ -28,6 +29,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
 export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const body = await request.json() as {
     siteName?: string;
+    minMessageLength?: number;
     maxMessageLength?: number;
     requireCaptcha?: boolean;
     moderationEnabled?: boolean;
@@ -41,6 +43,10 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   if (body.siteName !== undefined) {
     updates.push('site_name = ?');
     binds.push(body.siteName.slice(0, 50));
+  }
+  if (body.minMessageLength !== undefined) {
+    updates.push('min_message_length = ?');
+    binds.push(Math.min(Math.max(body.minMessageLength, 1), 50));
   }
   if (body.maxMessageLength !== undefined) {
     updates.push('max_message_length = ?');

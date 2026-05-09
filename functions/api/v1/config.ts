@@ -6,12 +6,13 @@ import type { Env, DbBoardConfig } from '../../../lib/types';
 
 export const onRequestGet = apiHandler(async (request, env) => {
   const config = await env.DB.prepare(
-    'SELECT site_name, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration FROM board_config WHERE id = 1'
+    'SELECT site_name, min_message_length, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration FROM board_config WHERE id = 1'
   ).first<DbBoardConfig>();
 
   if (!config) {
     return successResponse({
       siteName: '留言板',
+      minMessageLength: 2,
       maxMessageLength: 500,
       requireCaptcha: true,
       moderationEnabled: false,
@@ -24,6 +25,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
   const c = config;
   return successResponse({
     siteName: c.site_name,
+    minMessageLength: c.min_message_length || 2,
     maxMessageLength: c.max_message_length,
     requireCaptcha: c.require_captcha === 1,
     moderationEnabled: c.moderation_enabled === 1,
