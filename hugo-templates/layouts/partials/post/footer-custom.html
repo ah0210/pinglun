@@ -2,13 +2,13 @@
 <!-- 文章底部自动嵌入留言板 -->
 {{- if .Site.Params.guestbook.enable | default false }}
 {{- if .Params.guestbook | default true }}
-<div id="liuyanban-{{ md5 .RelPermalink }}"></div>
+<div id="guestbook-{{ md5 .RelPermalink }}"></div>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    LiuyanBoard.init({
-      container: '#liuyanban-{{ md5 .RelPermalink }}',
+    GuestbookWidget.init({
+      container: '#guestbook-{{ md5 .RelPermalink }}',
       pageId: '{{ .RelPermalink }}',
-      apiBase: '{{ .Site.Params.guestbook.apiBase | default "https://cf-guestbook.pages.dev/api/v1" }}',
+      apiBase: '{{ .Site.Params.guestbook.apiBase | default "https://cf-guestbook.pages.dev" }}',
       siteKey: '{{ .Site.Params.guestbook.siteKey }}',
       theme: '{{ .Site.Params.guestbook.theme | default "auto" }}',
       maxLength: {{ .Site.Params.guestbook.maxLength | default 500 }}

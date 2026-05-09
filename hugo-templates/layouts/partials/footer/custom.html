@@ -1,13 +1,13 @@
 <!-- Hugo: layouts/partials/footer/custom.html -->
 <!-- 留言板 Widget 懒加载 + preconnect 预连接 -->
 {{- if .Site.Params.guestbook.enable | default false }}
-<link rel="preconnect" href="https://cf-guestbook.pages.dev">
+{{- $widgetHost := .Site.Params.guestbook.apiBase | default "https://cf-guestbook.pages.dev" -}}
+<link rel="preconnect" href="{{ $widgetHost }}">
 <link rel="preconnect" href="https://cravatar.cn">
-<link rel="stylesheet" href="https://cf-guestbook.pages.dev/widget.css">
 {{- /* 懒加载：当留言板容器即将进入视口时再加载 widget.js */ -}}
 <script>
 (function() {
-  var widgetUrl = 'https://cf-guestbook.pages.dev/widget.js';
+  var widgetUrl = '{{ $widgetHost }}/widget.js';
   var observer = new IntersectionObserver(function(entries) {
     entries.forEach(function(entry) {
       if (entry.isIntersecting) {
@@ -20,7 +20,7 @@
     });
   }, { rootMargin: '200px' });
 
-  document.querySelectorAll('liuyan-board, [id^="liuyanban-"]').forEach(function(el) {
+  document.querySelectorAll('guestbook-widget, [id^="guestbook-"]').forEach(function(el) {
     observer.observe(el);
   });
 

@@ -26,9 +26,6 @@
         <label class="gb-label">密码</label>
         <input v-model="loginForm.password" class="gb-input" type="password" required autocomplete="current-password" />
       </div>
-      <div class="gb-turnstile">
-        <div ref="loginTurnstileRef" :id="'turnstile-login-' + instanceId"></div>
-      </div>
       <div v-if="error" class="gb-error">{{ error }}</div>
       <button class="gb-btn gb-btn-primary" type="submit" :disabled="auth.loading.value">
         {{ auth.loading.value ? '登录中...' : '登录' }}
@@ -49,9 +46,6 @@
         <label class="gb-label">密码</label>
         <input v-model="registerForm.password" class="gb-input" type="password" required minlength="6" autocomplete="new-password" />
       </div>
-      <div class="gb-turnstile">
-        <div ref="registerTurnstileRef" :id="'turnstile-register-' + instanceId"></div>
-      </div>
       <div v-if="error" class="gb-error">{{ error }}</div>
       <button class="gb-btn gb-btn-primary" type="submit" :disabled="auth.loading.value">
         {{ auth.loading.value ? '注册中...' : '注册' }}
@@ -61,7 +55,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps<{
   apiBase: string;
@@ -72,8 +66,6 @@ const props = defineProps<{
 
 const mode = ref<'login' | 'register'>('login');
 const error = ref('');
-const loginTurnstileRef = ref<HTMLElement>();
-const registerTurnstileRef = ref<HTMLElement>();
 const instanceId = Math.random().toString(36).slice(2, 8);
 
 const loginForm = ref({ login: '', password: '' });
@@ -82,48 +74,88 @@ const registerForm = ref({ username: '', email: '', password: '' });
 let loginWidgetId: string | undefined;
 let registerWidgetId: string | undefined;
 
-function renderTurnstile(containerId: string, element: HTMLElement | undefined): Promise<string> {
+/** 在 document.body 上创建临时容器并用 invisible 模式渲染 Turnstile（兼容 Shadow DOM） */
+function renderTurnstile(action: 'login' | 'register'): Promise<string> {
   return new Promise((resolve) => {
-    if (!element || !(window as any).turnstile) {
+    const turnstile = (window as any).turnstile;
+    if (!turnstile) {
+      // Turnstile 脚本未加载，跳过验证（由后端兜底）
       resolve('');
       return;
     }
-    (window as any).turnstile.render(`#${containerId}`, {
-      sitekey: props.siteKey,
-      callback: (token: string) => resolve(token),
-      'error-callback': () => resolve(''),
-    });
+
+    const containerId = `gb-turnstile-${action}-${instanceId}`;
+    let container = document.getElementById(containerId);
+    if (!container) {
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;visibility:hidden;';
+      document.body.appendChild(container);
+    }
+
+    // 10 秒超时保护，防止 Promise 永远挂起
+    const timeout = setTimeout(() => {
+      resolve('');
+    }, 10000);
+
+    try {
+      turnstile.render(`#${containerId}`, {
+        sitekey: props.siteKey,
+        callback: (token: string) => {
+          clearTimeout(timeout);
+          resolve(token);
+        },
+        'error-callback': () => {
+          clearTimeout(timeout);
+          resolve('');
+        },
+        size: 'invisible',
+      });
+    } catch {
+      clearTimeout(timeout);
+      resolve('');
+    }
   });
+}
+
+/** 清理 Turnstile 临时容器 */
+function removeTurnstileContainer(action: 'login' | 'register') {
+  const containerId = `gb-turnstile-${action}-${instanceId}`;
+  const container = document.getElementById(containerId);
+  if (container) {
+    const turnstile = (window as any).turnstile;
+    if (turnstile) {
+      try { turnstile.remove(containerId); } catch {}
+    }
+    container.remove();
+  }
 }
 
 function resetTurnstile(widgetId: string | undefined) {
   if (widgetId && (window as any).turnstile) {
-    (window as any).turnstile.reset(widgetId);
+    try { (window as any).turnstile.reset(widgetId); } catch {}
   }
 }
 
 async function handleLogin() {
   error.value = '';
-  const turnstileToken = await renderTurnstile(`turnstile-login-${instanceId}`, loginTurnstileRef.value);
-  if (!turnstileToken) {
-    error.value = '请完成人机验证';
-    return;
-  }
+  // Turnstile 尽量获取 token，失败时传空串由后端决定是否需要
+  const turnstileToken = await renderTurnstile('login');
 
   const result = await props.auth.login(loginForm.value.login, loginForm.value.password, turnstileToken);
   if (!result.success) {
     error.value = result.error?.message || '登录失败';
+    removeTurnstileContainer('login');
     resetTurnstile(loginWidgetId);
+  } else {
+    removeTurnstileContainer('login');
   }
 }
 
 async function handleRegister() {
   error.value = '';
-  const turnstileToken = await renderTurnstile(`turnstile-register-${instanceId}`, registerTurnstileRef.value);
-  if (!turnstileToken) {
-    error.value = '请完成人机验证';
-    return;
-  }
+  // Turnstile 尽量获取 token，失败时传空串由后端决定是否需要
+  const turnstileToken = await renderTurnstile('register');
 
   const result = await props.auth.register(
     registerForm.value.username,
@@ -133,7 +165,10 @@ async function handleRegister() {
   );
   if (!result.success) {
     error.value = result.error?.message || '注册失败';
+    removeTurnstileContainer('register');
     resetTurnstile(registerWidgetId);
+  } else {
+    removeTurnstileContainer('register');
   }
 }
 
@@ -144,5 +179,10 @@ onMounted(() => {
     script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?async=true';
     document.head.appendChild(script);
   }
+});
+
+onUnmounted(() => {
+  removeTurnstileContainer('login');
+  removeTurnstileContainer('register');
 });
 </script>

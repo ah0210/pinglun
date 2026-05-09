@@ -59,20 +59,37 @@ async function handleSubmit() {
     let turnstileToken = '';
     if (props.requireCaptcha && (window as any).turnstile) {
       turnstileToken = await new Promise<string>((resolve) => {
-        const containerId = 'gb-turnstile-msg';
-        let el = document.getElementById(containerId);
-        if (!el) {
-          el = document.createElement('div');
-          el.id = containerId;
-          el.style.display = 'none';
-          document.body.appendChild(el);
+        const containerId = `gb-turnstile-msg-${Date.now()}`;
+        const el = document.createElement('div');
+        el.id = containerId;
+        el.style.cssText = 'position:fixed;bottom:-9999px;left:-9999px;visibility:hidden;';
+        document.body.appendChild(el);
+
+        const timeout = setTimeout(() => {
+          el.remove();
+          resolve('');
+        }, 10000);
+
+        try {
+          (window as any).turnstile.render(`#${containerId}`, {
+            sitekey: props.siteKey,
+            callback: (token: string) => {
+              clearTimeout(timeout);
+              el.remove();
+              resolve(token);
+            },
+            'error-callback': () => {
+              clearTimeout(timeout);
+              el.remove();
+              resolve('');
+            },
+            size: 'invisible',
+          });
+        } catch {
+          clearTimeout(timeout);
+          el.remove();
+          resolve('');
         }
-        (window as any).turnstile.render(`#${containerId}`, {
-          sitekey: props.siteKey,
-          callback: (token: string) => resolve(token),
-          'error-callback': () => resolve(''),
-          size: 'invisible',
-        });
       });
     }
 
