@@ -1,15 +1,10 @@
 <!-- src/widget/components/MessageForm.vue — 留言输入框 -->
 <template>
   <div class="gb-form">
-    <!-- 回复目标提示 -->
-    <div v-if="replyTarget" class="gb-reply-target">
-      <span>回复 <strong>@{{ replyTarget.user.displayName }}</strong></span>
-      <button class="gb-btn gb-btn-text gb-btn-cancel-reply" @click="cancelReply">✕</button>
-    </div>
     <textarea
       v-model="content"
       class="gb-textarea"
-      :placeholder="replyTarget ? `回复 @${replyTarget.user.displayName}...` : placeholder"
+      :placeholder="placeholder"
       :maxlength="maxLength"
       rows="3"
     ></textarea>
@@ -19,7 +14,7 @@
         @click="handleSubmit"
         :disabled="submitting || !canSubmit"
       >
-        {{ submitting ? '发送中...' : (replyTarget ? '发送回复' : '发送留言') }}
+        {{ submitting ? '发送中...' : '发送留言' }}
       </button>
       <label class="gb-secret-toggle" v-if="!isAdmin">
         <input type="checkbox" v-model="isSecret" />
@@ -33,8 +28,8 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch } from 'vue';
-import type { PublicUser, PublicMessage } from '../../shared/types';
+import { ref, computed } from 'vue';
+import type { PublicUser } from '../../shared/types';
 
 const props = defineProps<{
   apiBase: string;
@@ -45,27 +40,12 @@ const props = defineProps<{
   requireCaptcha: boolean;
   messages: ReturnType<typeof import('../composables/useMessages').useMessages>;
   currentUser?: PublicUser | null;
-  replyTo?: PublicMessage | null;
-}>();
-
-const emit = defineEmits<{
-  'cancel-reply': [];
 }>();
 
 const content = ref('');
 const isSecret = ref(false);
 const submitting = ref(false);
 const error = ref('');
-
-// 回复目标
-const replyTarget = computed(() => props.replyTo);
-
-// 切换回复目标时聚焦输入框（通过 placeholder 变化提示用户）
-watch(() => props.replyTo, () => {
-  if (props.replyTo) {
-    content.value = '';
-  }
-});
 
 const isAdmin = computed(() => props.currentUser?.role === 'admin');
 const placeholder = computed(() => isAdmin.value ? '以管理员身份留言...' : '写下你的留言...');
@@ -77,10 +57,6 @@ const canSubmit = computed(() => {
   if (/(.)\1{5,}/.test(content.value)) return false;
   return true;
 });
-
-function cancelReply() {
-  emit('cancel-reply');
-}
 
 async function handleSubmit() {
   if (!content.value.trim()) return;
@@ -106,7 +82,6 @@ async function handleSubmit() {
         }, 10000);
 
         try {
-          // execution:'execute' 模式：先渲染，再手动触发验证
           const widgetId = (window as any).turnstile.render(`#${containerId}`, {
             sitekey: props.siteKey,
             callback: (token: string) => {
@@ -128,7 +103,6 @@ async function handleSubmit() {
             size: 'compact',
             execution: 'execute',
           });
-          // 手动触发验证
           (window as any).turnstile.execute(widgetId);
         } catch {
           clearTimeout(timeout);
@@ -138,19 +112,16 @@ async function handleSubmit() {
       });
     }
 
-    const replyToId = replyTarget.value?.id;
     const result = await props.messages.postMessage({
       content: content.value,
       pageId: props.pageId,
       isSecret: isSecret.value,
-      replyTo: replyToId,
       turnstileToken,
     });
 
     if (result.success) {
       content.value = '';
       isSecret.value = false;
-      cancelReply();
     } else {
       error.value = (result as any).error?.message || '发送失败';
     }

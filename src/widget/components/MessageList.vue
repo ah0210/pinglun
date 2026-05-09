@@ -8,7 +8,12 @@
         :key="msg.id"
         :message="msg"
         :current-user="currentUser"
-        @reply="$emit('reply', $event)"
+        :messages="messagesComposable"
+        :page-id="pageId"
+        :min-length="minLength"
+        :max-length="maxLength"
+        :site-key="siteKey"
+        :require-captcha="requireCaptcha"
       />
     </ul>
     <div v-else class="gb-empty">
@@ -25,9 +30,11 @@ defineProps<{
   messages: PublicMessage[];
   loading: boolean;
   currentUser?: PublicUser | null;
-}>();
-
-defineEmits<{
-  reply: [message: PublicMessage];
+  messagesComposable: ReturnType<typeof import('../composables/useMessages').useMessages>;
+  pageId: string;
+  minLength: number;
+  maxLength: number;
+  siteKey: string;
+  requireCaptcha: boolean;
 }>();
 </script>

@@ -26,41 +26,162 @@
 
     <!-- 回复按钮（仅登录用户可见） -->
     <div v-if="currentUser" class="gb-message-actions">
-      <button class="gb-btn gb-btn-reply" @click="$emit('reply', message)">回复</button>
+      <button class="gb-btn gb-btn-reply" @click="toggleReply">
+        {{ isReplying ? '取消回复' : '回复' }}
+      </button>
+    </div>
+
+    <!-- 内联回复表单 -->
+    <div v-if="isReplying" class="gb-inline-reply">
+      <div class="gb-reply-target">
+        <span>回复 <strong>@{{ message.user.displayName }}</strong></span>
+      </div>
+      <textarea
+        ref="replyTextarea"
+        v-model="replyContent"
+        class="gb-textarea gb-reply-textarea"
+        :placeholder="`回复 @${message.user.displayName}...`"
+        :maxlength="maxLength"
+        rows="2"
+      ></textarea>
+      <div class="gb-inline-reply-actions">
+        <button
+          class="gb-btn gb-btn-primary gb-btn-sm"
+          @click="handleReplySubmit"
+          :disabled="submitting || !canReplySubmit"
+        >
+          {{ submitting ? '发送中...' : '发送回复' }}
+        </button>
+        <span class="gb-hint">{{ replyContentLen }}/{{ maxLength }}<template v-if="replyContentLen > 0 && replyContentLen < minLength"> (至少{{ minLength }}字)</template></span>
+      </div>
+      <div v-if="replyContentLen >= minLength && /(.)\1{5,}/.test(replyContent)" class="gb-error">留言不能包含过多连续重复字符</div>
+      <div v-if="replyError" class="gb-error">{{ replyError }}</div>
     </div>
   </li>
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import type { PublicMessage, PublicUser } from '../../shared/types';
 
 const props = defineProps<{
   message: PublicMessage;
   currentUser?: PublicUser | null;
+  messages: ReturnType<typeof import('../composables/useMessages').useMessages>;
+  pageId: string;
+  minLength: number;
+  maxLength: number;
+  siteKey: string;
+  requireCaptcha: boolean;
 }>();
 
-defineEmits<{
-  reply: [message: PublicMessage];
-}>();
+const isReplying = ref(false);
+const replyContent = ref('');
+const submitting = ref(false);
+const replyError = ref('');
+const replyTextarea = ref<HTMLTextAreaElement | null>(null);
 
 const isSecretHidden = computed(() => {
   if (!props.message.isSecret) return false;
-  // 留言者本人和管理员可见内容，不显示占位
   if (props.currentUser?.role === 'admin') return false;
   if (props.currentUser && props.currentUser.id === props.message.user.id) return false;
   return true;
 });
 
-// 被回复留言的秘密内容也需按权限隐藏
-const isReplySecretHidden = computed(() => {
-  if (!props.message.replyToMessage?.isSecret) return false;
-  if (props.currentUser?.role === 'admin') return false;
-  // 无法直接获取被回复留言的 user_id，由后端已处理隐藏
-  // 前端此处作为兜底：如果当前用户不是留言者本人则隐藏
-  // 后端已根据 reply_user_id 做了判断，前端直接用后端返回的 content 即可
-  return false;
+// 被回复留言的秘密内容 — 后端已按权限处理
+const isReplySecretHidden = computed(() => false);
+
+const replyContentLen = computed(() => replyContent.value.trim().length);
+const canReplySubmit = computed(() => {
+  if (!replyContent.value.trim()) return false;
+  if (replyContentLen.value < props.minLength) return false;
+  if (/(.)\1{5,}/.test(replyContent.value)) return false;
+  return true;
 });
+
+async function toggleReply() {
+  isReplying.value = !isReplying.value;
+  if (isReplying.value) {
+    replyContent.value = '';
+    replyError.value = '';
+    await nextTick();
+    replyTextarea.value?.focus();
+  }
+}
+
+async function handleReplySubmit() {
+  if (!replyContent.value.trim()) return;
+
+  submitting.value = true;
+  replyError.value = '';
+
+  try {
+    // 获取 Turnstile token（如果需要）
+    let turnstileToken = '';
+    if (props.requireCaptcha && (window as any).turnstile) {
+      turnstileToken = await new Promise<string>((resolve) => {
+        const containerId = `gb-turnstile-reply-${Date.now()}`;
+        const el = document.createElement('div');
+        el.id = containerId;
+        el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
+        document.body.appendChild(el);
+
+        const timeout = setTimeout(() => {
+          try { (window as any).turnstile.remove(containerId); } catch {}
+          el.remove();
+          resolve('');
+        }, 10000);
+
+        try {
+          const widgetId = (window as any).turnstile.render(`#${containerId}`, {
+            sitekey: props.siteKey,
+            callback: (token: string) => {
+              clearTimeout(timeout);
+              try { (window as any).turnstile.remove(containerId); } catch {}
+              el.remove();
+              resolve(token);
+            },
+            'error-callback': () => {
+              clearTimeout(timeout);
+              try { (window as any).turnstile.remove(containerId); } catch {}
+              el.remove();
+              resolve('');
+            },
+            'expired-callback': () => {
+              clearTimeout(timeout);
+              resolve('');
+            },
+            size: 'compact',
+            execution: 'execute',
+          });
+          (window as any).turnstile.execute(widgetId);
+        } catch {
+          clearTimeout(timeout);
+          el.remove();
+          resolve('');
+        }
+      });
+    }
+
+    const result = await props.messages.postMessage({
+      content: replyContent.value,
+      pageId: props.pageId,
+      replyTo: props.message.id,
+      turnstileToken,
+    });
+
+    if (result.success) {
+      isReplying.value = false;
+      replyContent.value = '';
+    } else {
+      replyError.value = (result as any).error?.message || '发送失败';
+    }
+  } catch (e: any) {
+    replyError.value = e.message || '发送失败';
+  } finally {
+    submitting.value = false;
+  }
+}
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);

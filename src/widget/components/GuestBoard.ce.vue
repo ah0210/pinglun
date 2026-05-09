@@ -33,8 +33,6 @@
       :require-captcha="config?.requireCaptcha !== false"
       :messages="messages"
       :current-user="auth.user.value"
-      :reply-to="replyTarget"
-      @cancel-reply="replyTarget = null"
     />
 
     <!-- 留言列表 -->
@@ -42,7 +40,12 @@
       :messages="messages.messages.value"
       :loading="messages.loading.value"
       :current-user="auth.user.value"
-      @reply="handleReply"
+      :messages-composable="messages"
+      :page-id="pageId"
+      :min-length="minLength"
+      :max-length="maxLength"
+      :site-key="resolvedSiteKey"
+      :require-captcha="config?.requireCaptcha !== false"
     />
 
     <!-- 分页 -->
@@ -56,7 +59,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import { useMessages } from '../composables/useMessages';
 import { useTheme } from '../composables/useTheme';
@@ -64,7 +67,6 @@ import LoginForm from './LoginForm.vue';
 import MessageForm from './MessageForm.vue';
 import MessageList from './MessageList.vue';
 import Pagination from './Pagination.vue';
-import type { PublicMessage } from '../../shared/types';
 // CSS 通过下方 <style> 块注入 Shadow DOM
 
 const props = defineProps<{
@@ -98,16 +100,6 @@ watch(effectiveTheme, (t) => {
 
 const auth = useAuth(resolvedApiBase.value);
 const messages = useMessages(resolvedApiBase.value);
-
-// 回复目标状态
-const replyTarget = ref<PublicMessage | null>(null);
-
-function handleReply(message: PublicMessage) {
-  replyTarget.value = message;
-  // 滚动到输入框
-  const formEl = document.querySelector('.gb-form');
-  if (formEl) formEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
 
 // 从 useMessages 获取 config（方便模板和 computed 引用）
 const config = messages.config;
@@ -293,25 +285,33 @@ function onPageChange(page: number) {
   color: var(--gb-primary);
 }
 
-/* 回复目标提示 */
+/* 内联回复表单 */
+.gb-inline-reply {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--gb-bg-secondary);
+  border-radius: var(--gb-border-radius);
+}
 .gb-reply-target {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 12px;
-  margin-bottom: 8px;
-  background: var(--gb-bg-secondary);
-  border-radius: var(--gb-border-radius);
+  padding: 4px 0 8px;
   font-size: 13px;
   color: var(--gb-primary);
 }
-.gb-btn-cancel-reply {
-  font-size: 14px;
-  padding: 2px 6px;
-  color: var(--gb-text-secondary);
+.gb-reply-textarea {
+  min-height: 60px;
 }
-.gb-btn-cancel-reply:hover {
-  color: var(--gb-danger);
+.gb-inline-reply-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.gb-btn-sm {
+  padding: 5px 12px;
+  font-size: 13px;
 }
 
 /* 认证表单 */
