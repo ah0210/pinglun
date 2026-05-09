@@ -71,6 +71,14 @@ export function apiHandler(
         const result = await authenticate(request, env);
         if (result instanceof Response) return withCors(result, request, env);
         user = result.user;
+      } else {
+        // 可选鉴权：尝试提取用户信息（不强制要求登录）
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader?.startsWith('Bearer ')) {
+          const token = authHeader.slice(7);
+          const payload = await verifyAccessToken(token, env);
+          if (payload) user = payload;
+        }
       }
 
       const response = await handler(request, env, context, user);
