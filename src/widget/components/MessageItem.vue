@@ -11,9 +11,23 @@
         <span class="gb-time">{{ formatTime(message.createdAt) }}</span>
       </div>
     </div>
+
+    <!-- 被回复留言引用块 -->
+    <div v-if="message.replyToMessage" class="gb-reply-quote">
+      <span class="gb-reply-quote-user">@{{ message.replyToMessage.username }}</span>
+      <span class="gb-reply-quote-content">
+        {{ message.replyToMessage.isSecret && isReplySecretHidden ? '🔒 这是一条秘密留言' : message.replyToMessage.content }}
+      </span>
+    </div>
+
     <p class="gb-message-content" :class="{ 'gb-secret-placeholder': isSecretHidden }">
       {{ isSecretHidden ? '🔒 这是一条秘密留言' : message.content }}
     </p>
+
+    <!-- 回复按钮（仅登录用户可见） -->
+    <div v-if="currentUser" class="gb-message-actions">
+      <button class="gb-btn gb-btn-reply" @click="$emit('reply', message)">回复</button>
+    </div>
   </li>
 </template>
 
@@ -26,12 +40,26 @@ const props = defineProps<{
   currentUser?: PublicUser | null;
 }>();
 
+defineEmits<{
+  reply: [message: PublicMessage];
+}>();
+
 const isSecretHidden = computed(() => {
   if (!props.message.isSecret) return false;
   // 留言者本人和管理员可见内容，不显示占位
   if (props.currentUser?.role === 'admin') return false;
   if (props.currentUser && props.currentUser.id === props.message.user.id) return false;
   return true;
+});
+
+// 被回复留言的秘密内容也需按权限隐藏
+const isReplySecretHidden = computed(() => {
+  if (!props.message.replyToMessage?.isSecret) return false;
+  if (props.currentUser?.role === 'admin') return false;
+  // 无法直接获取被回复留言的 user_id，由后端已处理隐藏
+  // 前端此处作为兜底：如果当前用户不是留言者本人则隐藏
+  // 后端已根据 reply_user_id 做了判断，前端直接用后端返回的 content 即可
+  return false;
 });
 
 function formatTime(dateStr: string): string {

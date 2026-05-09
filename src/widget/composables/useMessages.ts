@@ -43,6 +43,7 @@ export function useMessages(apiBase: string) {
     content: string;
     pageId: string;
     isSecret?: boolean;
+    replyTo?: number;
     turnstileToken?: string;
   }) {
     const resp = await apiPost<PublicMessage>(apiBase, '/messages', data);

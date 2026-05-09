@@ -43,15 +43,24 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
 
   const total = countResult?.total || 0;
 
-  // 获取留言列表
+  // 获取留言列表（LEFT JOIN 被回复留言的信息）
   const messages = await env.DB.prepare(
-    `SELECT m.*, u.username, u.display_name, u.avatar, u.email, u.role as user_role, u.bio
+    `SELECT m.*, u.username, u.display_name, u.avatar, u.email, u.role as user_role, u.bio,
+            r.id as reply_id, r.content as reply_content, r.is_secret as reply_is_secret,
+            r.user_id as reply_user_id,
+            ru.username as reply_username, ru.display_name as reply_display_name
      FROM messages m
      JOIN users u ON m.user_id = u.id
+     LEFT JOIN messages r ON m.reply_to = r.id
+     LEFT JOIN users ru ON r.user_id = ru.id
      ${whereClause}
      ORDER BY m.created_at DESC
      LIMIT ? OFFSET ?`
-  ).bind(...binds, limit, (page - 1) * limit).all<DbMessage & { username: string; display_name: string; avatar: string; email: string; user_role: string; bio: string }>();
+  ).bind(...binds, limit, (page - 1) * limit).all<DbMessage & {
+    username: string; display_name: string; avatar: string; email: string; user_role: string; bio: string;
+    reply_id: number | null; reply_content: string | null; reply_is_secret: number | null;
+    reply_user_id: number | null; reply_username: string | null; reply_display_name: string | null;
+  }>();
 
   // 利用已获取的 total 避免重复查询
 
@@ -75,6 +84,28 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       }
     }
 
+    // 构建被回复留言摘要
+    let replyToMessage: { id: number; username: string; content: string; isSecret: boolean } | undefined;
+    if (m.reply_to && m.reply_id) {
+      let replyContent = m.reply_content || '';
+      // 被回复留言的秘密内容也需按权限隐藏
+      if (m.reply_is_secret === 1) {
+        if (!user || (user.role !== 'admin' && m.reply_user_id !== user.userId)) {
+          replyContent = '🔒 这是一条秘密留言';
+        }
+      }
+      // 截断摘要，最多 80 字
+      if (replyContent.length > 80) {
+        replyContent = replyContent.slice(0, 80) + '...';
+      }
+      replyToMessage = {
+        id: m.reply_id,
+        username: m.reply_display_name || m.reply_username || '',
+        content: replyContent,
+        isSecret: m.reply_is_secret === 1,
+      };
+    }
+
     return {
       id: m.id,
       pageId: m.page_id,
@@ -82,6 +113,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       isSecret: m.is_secret === 1,
       status: m.status,
       replyTo: m.reply_to,
+      replyToMessage,
       createdAt: m.created_at,
       updatedAt: m.updated_at,
       user: publicUser,
@@ -102,11 +134,25 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     content: string;
     pageId: string;
     isSecret?: boolean;
+    replyTo?: number;
     turnstileToken?: string;
   };
 
   if (!body.content || !body.pageId) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写留言内容和页面ID', 400);
+  }
+
+  // 校验回复目标
+  if (body.replyTo) {
+    const replyTarget = await env.DB.prepare(
+      'SELECT id, page_id FROM messages WHERE id = ?'
+    ).bind(body.replyTo).first<{ id: number; page_id: string }>();
+    if (!replyTarget) {
+      return errorResponse(ErrorCode.VALIDATION_ERROR, '回复的留言不存在', 400);
+    }
+    if (replyTarget.page_id !== body.pageId) {
+      return errorResponse(ErrorCode.VALIDATION_ERROR, '不能跨页面回复留言', 400);
+    }
   }
 
   // 获取配置
@@ -164,8 +210,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 插入留言
   const result = await env.DB.prepare(
-    `INSERT INTO messages (user_id, page_id, content, is_secret, status) VALUES (?, ?, ?, ?, ?)`
-  ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, status).run();
+    `INSERT INTO messages (user_id, page_id, content, is_secret, reply_to, status) VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, body.replyTo || null, status).run();
 
   // 返回完整消息对象，便于前端乐观更新
   const publicUser: PublicUser = {
@@ -181,7 +227,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     content,
     isSecret: !!body.isSecret,
     status,
-    replyTo: null,
+    replyTo: body.replyTo || null,
     createdAt: new Date().toISOString(),
     updatedAt: null,
     user: publicUser,

@@ -8,6 +8,7 @@
         :key="msg.id"
         :message="msg"
         :current-user="currentUser"
+        @reply="$emit('reply', $event)"
       />
     </ul>
     <div v-else class="gb-empty">
@@ -24,5 +25,9 @@ defineProps<{
   messages: PublicMessage[];
   loading: boolean;
   currentUser?: PublicUser | null;
+}>();
+
+defineEmits<{
+  reply: [message: PublicMessage];
 }>();
 </script>

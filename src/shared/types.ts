@@ -11,6 +11,13 @@ export interface PublicUser {
   emailVerified?: boolean;
 }
 
+export interface ReplyToMessage {
+  id: number;
+  username: string;
+  content: string;
+  isSecret: boolean;
+}
+
 export interface PublicMessage {
   id: number;
   pageId: string;
@@ -18,6 +25,7 @@ export interface PublicMessage {
   isSecret: boolean;
   status: string;
   replyTo: number | null;
+  replyToMessage?: ReplyToMessage;
   createdAt: string;
   updatedAt: string | null;
   user: PublicUser;
