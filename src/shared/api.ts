@@ -86,10 +86,15 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // 大多数请求不需要发送 Cookie（用 Bearer token 认证）
+  // 只有 refresh 请求需要 credentials: 'include' 发送 httpOnly Cookie
+  const needCredentials = (options as any).credentials === 'include';
+  const credentials = needCredentials ? 'include' : 'same-origin';
+
   const resp = await fetch(`${apiBase}${path}`, {
     ...options,
     headers,
-    credentials: 'include', // Cookie
+    credentials,
   });
 
   const data = await resp.json() as ApiResponse<T>;
@@ -104,7 +109,7 @@ export async function apiRequest<T>(
       const retryResp = await fetch(`${apiBase}${path}`, {
         ...options,
         headers,
-        credentials: 'include',
+        credentials,
       });
       return retryResp.json() as Promise<ApiResponse<T>>;
     }

@@ -30,7 +30,7 @@ function createWidget(options: WidgetOptions) {
   const board = document.createElement('guestbook-widget') as any;
   board.pageId = options.pageId;
   board.apiBase = options.apiBase;
-  board.siteKey = options.siteKey;
+  board.siteKey = options.siteKey || '';
   board.theme = options.theme || 'auto';
   board.maxLength = options.maxLength || 500;
 

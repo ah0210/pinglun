@@ -56,7 +56,7 @@ export interface WidgetOptions {
   container: string;
   pageId: string;
   apiBase: string;
-  siteKey: string;
+  siteKey?: string; // 可选，widget 会从 config API 自动获取
   theme?: 'light' | 'dark' | 'auto';
   maxLength?: number;
 }

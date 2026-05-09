@@ -86,7 +86,20 @@ export function apiHandler(
   };
 }
 
+const CORS_HEADERS = [
+  'Access-Control-Allow-Origin',
+  'Access-Control-Allow-Methods',
+  'Access-Control-Allow-Headers',
+  'Access-Control-Allow-Credentials',
+  'Access-Control-Max-Age',
+  'Access-Control-Expose-Headers',
+];
+
 function withCors(response: Response, request: Request, env: Env): Response {
+  // 先删除已有的 CORS 头（防止 wrangler dev 自动添加的通配符头冲突）
+  for (const h of CORS_HEADERS) {
+    response.headers.delete(h);
+  }
   const headers = corsHeaders(request, env);
   for (const [k, v] of Object.entries(headers)) {
     response.headers.set(k, v);

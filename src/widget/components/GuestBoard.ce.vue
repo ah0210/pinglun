@@ -17,7 +17,7 @@
     <LoginForm
       v-if="!auth.user.value"
       :api-base="resolvedApiBase"
-      :site-key="siteKey"
+      :site-key="resolvedSiteKey"
       :auth="auth"
       :allow-registration="config?.allowRegistration !== false"
     />
@@ -27,7 +27,7 @@
       v-if="auth.user.value"
       :api-base="resolvedApiBase"
       :page-id="pageId"
-      :site-key="siteKey"
+      :site-key="resolvedSiteKey"
       :max-length="maxLength"
       :require-captcha="config?.requireCaptcha !== false"
       :messages="messages"
@@ -64,7 +64,7 @@ import Pagination from './Pagination.vue';
 const props = defineProps<{
   pageId: string;
   apiBase: string;
-  siteKey: string;
+  siteKey?: string; // 可选，优先使用 config API 返回的 turnstileSiteKey
   theme?: 'light' | 'dark' | 'auto';
   maxLength?: number;
 }>();
@@ -74,6 +74,12 @@ const resolvedApiBase = computed(() => {
   const base = props.apiBase.replace(/\/+$/, '');
   return base.endsWith('/api/v1') ? base : base + '/api/v1';
 });
+
+// 优先使用 config API 返回的 turnstileSiteKey，否则用 prop
+const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.siteKey || '');
+
+// 优先使用 config 返回的 maxMessageLength
+const maxLength = computed(() => config.value?.maxMessageLength || props.maxLength || 500);
 
 const { effectiveTheme } = useTheme(props.theme || 'auto');
 

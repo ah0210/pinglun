@@ -85,7 +85,7 @@ onMounted(async () => {
   // 加载 Turnstile 脚本
   if (!document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
     const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?async=true';
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
     document.head.appendChild(script);
   }
 

@@ -24,7 +24,6 @@
   <h2>方式2：HTML 标签</h2>
   <guestbook-widget
     api-base="http://localhost:8788"
-    site-key="1x0000000000000000000000000000000AA"
     page-id="/test-page"
   ></guestbook-widget>
 
@@ -44,7 +43,7 @@
   </script>
 
   <script src="/widget.js"
-    onload="log('   widget.js 加载成功', 'ok'); log('3. 检查 GuestbookWidget: ' + typeof window.GuestbookWidget, typeof window.GuestbookWidget === 'object' ? 'ok' : 'error'); if(window.GuestbookWidget){GuestbookWidget.init({container:'#guestbook-container',pageId:'/test-page-js',apiBase:'http://localhost:8788',siteKey:'1x0000000000000000000000000000000AA',theme:'auto',maxLength:500});log('4. GuestbookWidget.init() 已调用','ok')}else{log('   window.GuestbookWidget 未定义！','error')}"
+    onload="log('   widget.js 加载成功', 'ok'); log('3. 检查 GuestbookWidget: ' + typeof window.GuestbookWidget, typeof window.GuestbookWidget === 'object' ? 'ok' : 'error'); if(window.GuestbookWidget){GuestbookWidget.init({container:'#guestbook-container',pageId:'/test-page-js',apiBase:'http://localhost:8788',theme:'auto'});log('4. GuestbookWidget.init() 已调用','ok')}else{log('   window.GuestbookWidget 未定义！','error')}"
     onerror="log('   widget.js 加载失败！', 'error')">
   </script>
 
