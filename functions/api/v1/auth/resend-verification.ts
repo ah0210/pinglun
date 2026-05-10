@@ -1,7 +1,7 @@
 // functions/api/v1/auth/resend-verification.ts — 重发验证邮件
 import { apiHandler } from '../../../../lib/middleware';
 import { sendEmail, buildVerifyEmailHtml } from '../../../../lib/email';
-import { generateToken } from '../../../../lib/jwt';
+import { generateToken, hashToken } from '../../../../lib/jwt';
 import { successResponse, errorResponse, ErrorCode } from '../../../../lib/response';
 import type { Env, DbUser, JwtPayload } from '../../../../lib/types';
 

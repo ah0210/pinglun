@@ -13,9 +13,11 @@
     "db:init": "wrangler d1 execute guestbook --local --file=sql/001_init.sql",
     "db:seed": "wrangler d1 execute guestbook --local --file=sql/002_seed.sql",
     "db:migrate": "wrangler d1 execute guestbook --local --file=sql/003_add_min_length.sql",
+    "db:migrate:v2": "wrangler d1 execute guestbook --local --file=sql/004_password_resets.sql",
     "db:init:remote": "wrangler d1 execute guestbook --remote --file=sql/001_init.sql",
     "db:seed:remote": "wrangler d1 execute guestbook --remote --file=sql/002_seed.sql",
     "db:migrate:remote": "wrangler d1 execute guestbook --remote --file=sql/003_add_min_length.sql",
+    "db:migrate:v2:remote": "wrangler d1 execute guestbook --remote --file=sql/004_password_resets.sql",
     "test:widget": "pnpm run build && pnpm run copy:test && pnpm run preview",
     "copy:test": "copy test\\test-widget.html dist\\test-widget.html"
   },

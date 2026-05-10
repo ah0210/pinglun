@@ -24,6 +24,11 @@ export enum ErrorCode {
   // 管理员相关 4xxx
   FORBIDDEN = 4001,
 
+  // 密码重置 5xxx
+  PASSWORD_RESET_EXPIRED = 5001,
+  PASSWORD_RESET_USED = 5002,
+  PASSWORD_RESET_INVALID = 5003,
+
   // 通用 9xxx
   VALIDATION_ERROR = 9001,
   TURNSTILE_FAILED = 9002,

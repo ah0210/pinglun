@@ -1,30 +1,41 @@
 <!-- src/widget/components/GuestBoard.ce.vue — 留言板主容器（Web Component） -->
 <template>
   <div class="gb-container">
-    <h2 class="gb-title">{{ config?.siteName || '留言板' }}</h2>
-
-    <!-- 用户状态栏 -->
-    <div v-if="auth.user.value" class="gb-user-bar">
-      <div class="gb-user-info">
-        <img :src="auth.user.value.avatar" class="gb-avatar" :alt="auth.user.value.displayName" />
-        <span class="gb-user-name">{{ auth.user.value.displayName }}</span>
-        <span v-if="auth.user.value.role === 'admin'" class="gb-admin-badge">管理员</span>
+    <!-- 头部：标题 + 用户栏 -->
+    <div class="gb-header">
+      <h2 class="gb-title">{{ config?.siteName || '留言板' }}</h2>
+      <div v-if="auth.user.value" class="gb-user-bar">
+        <UserDropdown
+          :user="auth.user.value"
+          @change-password="openAuthModal('change-password')"
+          @change-email="openAuthModal('change-email')"
+          @logout="onLogout"
+        />
       </div>
-      <button class="gb-btn gb-btn-text" @click="auth.logout()">退出</button>
     </div>
 
-    <!-- 认证表单 -->
-    <LoginForm
-      v-if="!auth.user.value"
-      :api-base="resolvedApiBase"
-      :site-key="resolvedSiteKey"
-      :auth="auth"
-      :allow-registration="config?.allowRegistration !== false"
-    />
+    <!-- 未登录：登录/注册按钮 -->
+    <div v-if="!auth.user.value" class="gb-auth-prompt">
+      <span class="gb-auth-hint">登录后即可留言</span>
+      <button class="gb-btn gb-btn-primary gb-btn-sm" @click="openAuthModal('login')">登录</button>
+      <button v-if="config?.allowRegistration !== false" class="gb-btn gb-btn-outline gb-btn-sm" @click="openAuthModal('register')">注册</button>
+    </div>
 
-    <!-- 留言输入 -->
+    <!-- 已登录但邮箱未验证：提示区 -->
+    <div v-if="auth.user.value && !auth.user.value.emailVerified && auth.user.value.role !== 'admin'" class="gb-verify-prompt">
+      <div class="gb-verify-text">⚠️ 请先验证邮箱才能留言</div>
+      <div class="gb-verify-email">📧 当前邮箱：{{ maskEmail(auth.user.value.email) }}</div>
+      <div class="gb-verify-actions">
+        <button class="gb-btn gb-btn-sm gb-btn-outline" :disabled="resendLoading" @click="handleResendVerification">
+          {{ resendLoading ? '发送中...' : '重发验证邮件' }}
+        </button>
+        <button class="gb-btn gb-btn-sm gb-btn-outline" @click="openAuthModal('change-email')">修改邮箱</button>
+      </div>
+    </div>
+
+    <!-- 已登录且邮箱已验证（或管理员）：留言输入 -->
     <MessageForm
-      v-if="auth.user.value"
+      v-if="auth.user.value && (auth.user.value.emailVerified || auth.user.value.role === 'admin')"
       :api-base="resolvedApiBase"
       :page-id="pageId"
       :site-key="resolvedSiteKey"
@@ -55,67 +66,95 @@
       :total="messages.totalPages.value"
       @change="onPageChange"
     />
+
+    <!-- 认证弹窗 -->
+    <AuthModal
+      ref="authModalRef"
+      :site-key="resolvedSiteKey"
+      @close="onAuthModalClose"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, watch } from 'vue';
-import { useAuth } from '../composables/useAuth';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useAuth, initAuth } from '../composables/useAuth';
 import { useMessages } from '../composables/useMessages';
 import { useTheme } from '../composables/useTheme';
-import LoginForm from './LoginForm.vue';
+import UserDropdown from './UserDropdown.vue';
+import AuthModal from './AuthModal.vue';
+
+type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-password' | 'change-email';
 import MessageForm from './MessageForm.vue';
 import MessageList from './MessageList.vue';
 import Pagination from './Pagination.vue';
-// CSS 通过下方 <style> 块注入 Shadow DOM
 
 const props = defineProps<{
   pageId: string;
   apiBase: string;
-  siteKey?: string; // 可选，优先使用 config API 返回的 turnstileSiteKey
+  siteKey?: string;
   theme?: 'light' | 'dark' | 'auto';
   maxLength?: number;
 }>();
 
-// 自动补全 apiBase：若不以 /api/v1 结尾则追加
+// 自动补全 apiBase
 const resolvedApiBase = computed(() => {
   const base = props.apiBase.replace(/\/+$/, '');
   return base.endsWith('/api/v1') ? base : base + '/api/v1';
 });
 
-// 优先使用 config API 返回的 turnstileSiteKey，否则用 prop
-const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.siteKey || '');
+// 初始化认证单例
+initAuth(resolvedApiBase.value);
 
-// 优先使用 config 返回的 maxMessageLength
+const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.siteKey || '');
 const maxLength = computed(() => config.value?.maxMessageLength || props.maxLength || 500);
 const minLength = computed(() => config.value?.minMessageLength || 2);
 
 const { effectiveTheme } = useTheme(props.theme || 'auto');
 
-// 监听主题变化
 watch(effectiveTheme, (t) => {
   const el = (globalThis as any).__widget_host_el as HTMLElement;
   if (el) el.setAttribute('theme', t);
 }, { immediate: true });
 
-const auth = useAuth(resolvedApiBase.value);
+const auth = useAuth();
 const messages = useMessages(resolvedApiBase.value);
-
-// 从 useMessages 获取 config（方便模板和 computed 引用）
 const config = messages.config;
 
+const authModalRef = ref<InstanceType<typeof AuthModal> | null>(null);
+const resendLoading = ref(false);
+
+function openAuthModal(mode: AuthModalMode) {
+  authModalRef.value?.open(mode);
+}
+
+function onAuthModalClose() {
+  // 弹窗关闭后无需额外处理，状态已由 useAuth 管理
+}
+
+async function onLogout() {
+  // 退出登录由 UserDropdown 内部调用 auth.logout() 处理
+}
+
+async function handleResendVerification() {
+  resendLoading.value = true;
+  await auth.resendVerification();
+  resendLoading.value = false;
+}
+
+function maskEmail(email: string): string {
+  if (!email) return '';
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const masked = local.length > 1 ? local[0] + '***' : local;
+  return `${masked}@${domain}`;
+}
+
 onMounted(async () => {
-  // 获取配置
   await messages.fetchConfig();
-  // 加载留言
   await messages.fetchMessages(props.pageId);
-  // 恢复登录状态
   await auth.init();
 });
-
-function onPageChange(page: number) {
-  messages.fetchMessages(props.pageId, page);
-}
 </script>
 
 <style>
@@ -157,27 +196,21 @@ function onPageChange(page: number) {
 
 /* 通用 */
 .gb-container { padding: 20px; }
-.gb-title { font-size: 20px; font-weight: 600; margin: 0 0 20px; color: var(--gb-text); }
 
-/* 表单 */
-.gb-form { margin-bottom: 20px; }
-.gb-textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 10px 12px;
-  border: 1px solid var(--gb-border);
-  border-radius: var(--gb-border-radius);
-  font-size: var(--gb-font-size);
-  font-family: inherit;
-  resize: vertical;
-  background: var(--gb-bg);
-  color: var(--gb-text);
-  box-sizing: border-box;
+.gb-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
 }
-.gb-textarea:focus { outline: none; border-color: var(--gb-primary); }
+.gb-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--gb-text);
+  flex: 1;
+}
 
-.gb-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-
+/* 按钮 */
 .gb-btn {
   display: inline-flex;
   align-items: center;
@@ -193,17 +226,58 @@ function onPageChange(page: number) {
 .gb-btn-primary { background: var(--gb-primary); color: #fff; }
 .gb-btn-primary:hover { background: var(--gb-primary-hover); }
 .gb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.gb-btn-text { background: transparent; color: var(--gb-primary); padding: 8px 8px; }
-.gb-btn-text:hover { text-decoration: underline; }
-.gb-btn-danger { background: var(--gb-danger); color: #fff; }
+.gb-btn-outline { background: transparent; color: var(--gb-primary); border: 1px solid var(--gb-primary); }
+.gb-btn-outline:hover { background: var(--gb-bg-secondary); }
+.gb-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+.gb-btn-sm { padding: 5px 12px; font-size: 13px; }
 
-.gb-secret-toggle {
-  display: flex; align-items: center; gap: 4px; cursor: pointer;
-  font-size: 13px; color: var(--gb-text-secondary); user-select: none;
+/* 未登录提示 */
+.gb-auth-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--gb-bg-secondary);
+  border-radius: var(--gb-border-radius);
 }
-.gb-secret-toggle input { cursor: pointer; }
+.gb-auth-hint {
+  color: var(--gb-text-secondary);
+  font-size: 14px;
+  margin-right: auto;
+}
 
-.gb-hint { font-size: 12px; color: var(--gb-text-secondary); margin-top: 6px; }
+/* 用户栏 */
+.gb-user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+/* 邮箱未验证提示 */
+.gb-verify-prompt {
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(243, 156, 18, 0.08);
+  border: 1px solid rgba(243, 156, 18, 0.2);
+  border-radius: var(--gb-border-radius);
+}
+.gb-verify-text {
+  font-size: 14px;
+  color: var(--gb-warning);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.gb-verify-email {
+  font-size: 12px;
+  color: var(--gb-text-secondary);
+  margin-bottom: 8px;
+}
+.gb-verify-actions {
+  display: flex;
+  gap: 8px;
+}
 
 /* 留言列表 */
 .gb-message-list { list-style: none; padding: 0; margin: 0; }
@@ -309,47 +383,6 @@ function onPageChange(page: number) {
   gap: 10px;
   margin-top: 8px;
 }
-.gb-btn-sm {
-  padding: 5px 12px;
-  font-size: 13px;
-}
-
-/* 认证表单 */
-.gb-auth { margin-bottom: 20px; padding: 16px; background: var(--gb-bg-secondary); border-radius: var(--gb-border-radius); }
-.gb-auth-title { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
-.gb-auth-tabs { display: flex; gap: 0; margin-bottom: 16px; border-bottom: 1px solid var(--gb-border); }
-.gb-auth-tab {
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  font-size: 14px;
-  cursor: pointer;
-  color: var(--gb-text-secondary);
-  border-bottom: 2px solid transparent;
-  font-family: inherit;
-}
-.gb-auth-tab.active { color: var(--gb-primary); border-bottom-color: var(--gb-primary); }
-
-.gb-input-group { margin-bottom: 12px; }
-.gb-label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--gb-text-secondary); }
-.gb-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--gb-border);
-  border-radius: var(--gb-border-radius);
-  font-size: 14px;
-  font-family: inherit;
-  box-sizing: border-box;
-  background: var(--gb-bg);
-  color: var(--gb-text);
-}
-.gb-input:focus { outline: none; border-color: var(--gb-primary); }
-
-.gb-error { color: var(--gb-danger); font-size: 13px; margin-top: 4px; }
-
-.gb-user-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; padding: 10px 14px; background: var(--gb-bg-secondary); border-radius: var(--gb-border-radius); }
-.gb-user-info { display: flex; align-items: center; gap: 8px; }
-.gb-user-name { font-weight: 500; }
 
 /* 分页 */
 .gb-pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; }
@@ -369,9 +402,6 @@ function onPageChange(page: number) {
 
 /* 空状态 */
 .gb-empty { text-align: center; padding: 40px 20px; color: var(--gb-text-secondary); }
-
-/* Turnstile */
-.gb-turnstile { margin: 10px 0; }
 
 /* Loading */
 .gb-loading { text-align: center; padding: 20px; color: var(--gb-text-secondary); }

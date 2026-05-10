@@ -119,6 +119,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
         username: user!.username,
         displayName: user!.display_name || user!.username,
         email: user!.email,
+        emailVerified: user!.email_verified === 1,
         avatar: user!.avatar,
         role: user!.role,
       },

@@ -92,6 +92,8 @@ export interface PublicUser {
   id: number;
   username: string;
   displayName: string;
+  email: string;
+  emailVerified: boolean;
   avatar: string;
   role: string;
   bio: string;
@@ -171,6 +173,8 @@ export function toPublicUser(u: DbUser): PublicUser {
     id: u.id,
     username: u.username,
     displayName: u.display_name || u.username,
+    email: u.email,
+    emailVerified: u.email_verified === 1,
     avatar: u.avatar,
     role: u.role,
     bio: u.bio,

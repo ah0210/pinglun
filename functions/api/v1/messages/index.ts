@@ -70,6 +70,8 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       id: m.user_id,
       username: m.username,
       displayName: m.display_name || m.username,
+      email: m.email,
+      emailVerified: false, // 列表中不暴露验证状态，统一显示
       avatar: m.avatar || getAvatarUrl(m.email),
       role: m.user_role,
       bio: m.bio,
@@ -124,10 +126,20 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   return paginatedResponse(items, total, page, limit, headers);
 }, { requireAuth: false });
 
-// POST — 提交留言（需登录）
+// POST — 提交留言（需登录 + 邮箱已验证，管理员豁免）
 export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   if (!user) {
     return errorResponse(ErrorCode.UNAUTHORIZED, '请先登录', 401);
+  }
+
+  // 邮箱验证检查（管理员豁免）
+  if (user.role !== 'admin') {
+    const dbUser = await env.DB.prepare(
+      'SELECT email_verified FROM users WHERE id = ?'
+    ).bind(user.userId).first<{ email_verified: number }>();
+    if (dbUser && !dbUser.email_verified) {
+      return errorResponse(ErrorCode.EMAIL_NOT_VERIFIED, '请先验证邮箱后再留言', 403);
+    }
   }
 
   const body = await request.json() as {
@@ -218,8 +230,11 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     id: user.userId,
     username: user.username,
     displayName: user.username,
+    email: '',
+    emailVerified: false,
     avatar: '',
     role: user.role,
+    bio: '',
   };
   const newMessage = {
     id: result.meta.last_row_id as number,

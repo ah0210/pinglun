@@ -62,6 +62,7 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
     username: updatedUser!.username,
     displayName: updatedUser!.display_name || updatedUser!.username,
     email: updatedUser!.email,
+    emailVerified: updatedUser!.email_verified === 1,
     avatar: updatedUser!.avatar || getAvatarUrl(updatedUser!.email),
     role: updatedUser!.role,
     bio: updatedUser!.bio,

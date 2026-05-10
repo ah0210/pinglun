@@ -4,11 +4,11 @@ export interface PublicUser {
   id: number;
   username: string;
   displayName: string;
+  email: string;
+  emailVerified: boolean;
   avatar: string;
   role: string;
   bio?: string;
-  email?: string;
-  emailVerified?: boolean;
 }
 
 export interface ReplyToMessage {

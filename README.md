@@ -12,6 +12,11 @@
 - 📏 留言字数限制（可配置最少/最多字数）
 - 📊 Naive UI 管理后台（留言审核、用户管理、系统配置、操作日志）
 - ✉️ Resend 邮件验证（同步调用，免费 100 封/天）
+- 🔑 找回/重置密码（邮箱发送重置链接，Token Hash 存储，1 小时过期）
+- 📧 修改邮箱（密码验证 + 重新验证 + Gravatar 自动更新）
+- ✅ 邮箱验证才能留言（前后端双重拦截，管理员豁免）
+- 🪟 认证弹窗系统（登录/注册/找回密码/重置密码/修改密码/修改邮箱）
+- 🧭 导航栏认证栏（`<gb-auth-bar>` Web Component + `window.GuestBoard` 全局 API）
 - 🔄 CORS 跨域支持、Gravatar 头像自动生成、API 错误码体系统一
 
 ## 快速开始
@@ -62,6 +67,7 @@ pnpm run db:seed
 
 # 如果是升级现有数据库，执行迁移
 pnpm run db:migrate
+pnpm run db:migrate:v2
 
 # 启动本地开发服务器（先构建再启动）
 pnpm run dev
@@ -183,6 +189,7 @@ pnpm run db:init:remote
 pnpm run db:seed:remote
 # 如需升级远程数据库
 pnpm run db:migrate:remote
+pnpm run db:migrate:v2:remote
 ```
 
 ### 9. 设置生产密钥
@@ -245,8 +252,11 @@ guestbook: false
 | PATCH | `/api/v1/auth/me` | JWT | 修改资料 |
 | POST | `/api/v1/auth/change-password` | JWT | 修改密码 |
 | POST | `/api/v1/auth/resend-verification` | JWT | 重发验证邮件 |
+| POST | `/api/v1/auth/forgot-password` | Turnstile | 忘记密码（发送重置邮件） |
+| POST | `/api/v1/auth/reset-password` | 无 | 重置密码（Token 验证） |
+| POST | `/api/v1/auth/change-email` | JWT | 修改邮箱 |
 | GET | `/api/v1/messages` | 可选 | 留言列表 |
-| POST | `/api/v1/messages` | JWT + Turnstile | 提交留言 |
+| POST | `/api/v1/messages` | JWT + Turnstile + 邮箱验证 | 提交留言 |
 | GET | `/api/v1/messages/:id` | JWT（秘密） | 单条留言 |
 | POST | `/api/v1/setup` | 无 | 初始化管理员 |
 
@@ -270,10 +280,12 @@ guestbook: false
 ```
 cf-guestbook/
 ├── functions/api/v1/    → 后端 API（Pages Functions）
+│   └── auth/            → 认证相关（注册/登录/找回密码/重置密码/修改邮箱等）
 ├── lib/                  → 共享工具库
 ├── sql/                  → 数据库脚本
 ├── src/
 │   ├── widget/           → 留言板 Widget（Web Component）
+│   │   └── components/   → AuthModal / UserDropdown / AuthBar / GuestBoard
 │   ├── admin/            → 管理后台 SPA（Naive UI）
 │   └── shared/           → 共享前端代码
 ├── hugo-templates/       → Hugo 集成文件
@@ -298,7 +310,130 @@ cf-guestbook/
 - 所有用户输入入库前 HTML 转义
 - CORS 仅允许配置的域名
 - 管理员操作全部记录审计日志
+- 密码重置 Token 使用 SHA-256 Hash 存储，不明文保存
+- 找回密码防邮箱枚举（无论邮箱是否存在均返回相同提示）
+- 找回密码双维度频率限制（邮箱 1 次/分钟 + IP 3 次/5分钟）
+- 邮箱验证前后端双重拦截留言，管理员豁免
+
+## 外部页面集成
+
+### 导航栏认证栏
+
+在网站导航栏展示认证状态，使用 `<gb-auth-bar>` Web Component：
+
+```html
+<!-- 在导航栏中放置认证栏 -->
+<gb-auth-bar api-base="https://your-domain.com/api/v1"></gb-auth-bar>
+```
+
+### 全局 JS API
+
+Widget 加载后自动暴露 `window.GuestBoard` 全局对象：
+
+```js
+// 获取当前用户
+GuestBoard.getUser();  // PublicUser | null
+
+// 打开认证弹窗
+GuestBoard.openAuth('login');       // 登录
+GuestBoard.openAuth('register');    // 注册
+GuestBoard.openAuth('forgot-password');  // 找回密码
+
+// 退出登录
+GuestBoard.logout();
+
+// 监听认证状态变化
+const unsub = GuestBoard.onAuthChange((user) => {
+  console.log(user ? `已登录: ${user.username}` : '未登录');
+});
+
+// 挂载认证栏到指定容器
+GuestBoard.mountAuthBar('#nav-auth');
+
+// 卸载认证栏
+GuestBoard.unmountAuthBar();
+```
+
+### 通过 CustomEvent 触发（纯 HTML 可用）
+
+```html
+<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'login'},composed:true}))">登录</button>
+<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'register'},composed:true}))">注册</button>
+```
 
 ## 许可
 
 MIT
+
+## 测试
+
+### 类型检查
+
+```bash
+pnpm run typecheck
+```
+
+### 构建验证
+
+```bash
+pnpm run build
+```
+
+### 本地完整测试流程
+
+```bash
+# 1. 安装依赖
+pnpm install
+
+# 2. 初始化本地数据库（首次）
+pnpm run db:init
+pnpm run db:seed
+pnpm run db:migrate:v2
+
+# 3. 构建并启动本地服务
+pnpm run dev
+
+# 4. 初始化管理员
+curl -X POST http://localhost:8788/api/v1/setup \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","email":"admin@test.com","password":"Test123456"}'
+
+# 5. 测试注册（需先配置 .dev.vars 中的 Turnstile 测试密钥）
+curl -X POST http://localhost:8788/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","email":"test@test.com","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
+
+# 6. 测试登录
+curl -X POST http://localhost:8788/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"testuser","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
+
+# 7. 测试忘记密码
+curl -X POST http://localhost:8788/api/v1/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@test.com","turnstileToken":"1x00000000000000000000AA"}'
+
+# 8. 测试修改邮箱（需替换 <ACCESS_TOKEN>）
+curl -X POST http://localhost:8788/api/v1/auth/change-email \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -d '{"newEmail":"newemail@test.com","currentPassword":"Test123456"}'
+
+# 9. 测试修改密码（需替换 <ACCESS_TOKEN>）
+curl -X POST http://localhost:8788/api/v1/auth/change-password \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -d '{"currentPassword":"Test123456","newPassword":"NewPass123456"}'
+
+# 10. 访问 Widget 测试页
+# 浏览器打开 http://127.0.0.1:8788/test-widget.html
+```
+
+### 测试页面验证
+
+```bash
+# 一键构建 + 复制测试页 + 启动开发服务器
+pnpm run test:widget
+```
+
+浏览器访问 `http://127.0.0.1:8788/test-widget.html`，页面会自动检测 API/JS/CSS 并渲染留言板。

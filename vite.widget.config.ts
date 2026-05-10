@@ -16,7 +16,7 @@ export default defineConfig({
     emptyOutDir: true,
     minify: 'esbuild',
     lib: {
-      entry: 'src/widget/entry.ts',
+      entry: './src/widget/entry.ts',
       name: 'LiuyanBoard',
       formats: ['iife'],
       fileName: () => 'widget.js',
