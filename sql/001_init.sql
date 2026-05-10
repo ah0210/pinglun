@@ -1,5 +1,7 @@
 -- ============================================
--- 留言板系统完整 Schema (D1 / SQLite) v2.2
+-- 自游人留言板 完整 Schema (D1 / SQLite) v1.0.0
+-- 包含所有表结构、字段和索引
+-- 新部署只需执行此文件 + 002_seed.sql
 -- ============================================
 
 -- Schema 迁移记录表
@@ -16,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name    TEXT DEFAULT '',
   email           TEXT UNIQUE NOT NULL,
   email_verified  INTEGER DEFAULT 0,
+  email_verified_at TEXT DEFAULT NULL,
   password_hash   TEXT NOT NULL,
   role            TEXT DEFAULT 'user',
   avatar          TEXT DEFAULT '',
@@ -35,6 +38,17 @@ CREATE TABLE IF NOT EXISTS email_verifications (
   token      TEXT UNIQUE NOT NULL,
   expires_at TEXT NOT NULL,
   verified   INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+-- 密码重置表
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TEXT NOT NULL,
+  used       INTEGER DEFAULT 0,
+  ip_address TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -105,6 +119,11 @@ CREATE INDEX IF NOT EXISTS idx_admin_logs_created ON admin_logs(created_at DESC)
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_resets_hash ON password_resets(token_hash);
+CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 
 -- 记录初始迁移
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');
+INSERT OR IGNORE INTO _migrations (name) VALUES ('003_add_min_length');
+INSERT OR IGNORE INTO _migrations (name) VALUES ('004_password_resets');
+INSERT OR IGNORE INTO _migrations (name) VALUES ('005_email_verified_at');

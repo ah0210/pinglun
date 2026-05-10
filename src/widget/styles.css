@@ -77,10 +77,10 @@
   min-height: 44px;
 }
 .gb-btn-primary { background: var(--gb-primary); color: #fff; }
-.gb-btn-primary:hover { background: var(--gb-primary-hover); }
+.gb-btn-primary:active { background: var(--gb-primary-hover); }
 .gb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .gb-btn-text { background: transparent; color: var(--gb-primary); padding: 8px 8px; }
-.gb-btn-text:hover { text-decoration: underline; }
+.gb-btn-text:active { text-decoration: underline; }
 .gb-btn-danger { background: var(--gb-danger); color: #fff; }
 
 .gb-secret-toggle {

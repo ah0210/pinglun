@@ -68,6 +68,14 @@
       @change="onPageChange"
     />
 
+    <!-- 版权信息 -->
+    <div class="gb-footer">
+      <span class="gb-copyright">
+        &copy; <a href="https://www.17you.com/" target="_blank" rel="noopener noreferrer">自游人</a>
+      </span>
+      <span class="gb-version">v1.0.0</span>
+    </div>
+
     <!-- 认证弹窗 -->
     <AuthModal
       ref="authModalRef"
@@ -421,6 +429,29 @@ onMounted(async () => {
 .gb-status-pending { color: var(--gb-warning); font-size: 12px; }
 .gb-status-approved { color: var(--gb-success); font-size: 12px; }
 
+/* 版权信息 */
+.gb-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gb-border);
+  font-size: 12px;
+  color: var(--gb-text-secondary);
+}
+.gb-footer a {
+  color: var(--gb-text-secondary);
+  text-decoration: none;
+}
+.gb-footer a:active {
+  color: var(--gb-primary);
+}
+.gb-version {
+  opacity: 0.6;
+}
+
 /* 移动端适配 */
 @media (max-width: 480px) {
   .gb-container { padding: 12px; }
@@ -487,5 +518,6 @@ onMounted(async () => {
   .gb-btn-outline:hover { background: var(--gb-bg-secondary); }
   .gb-btn-reply:hover { color: var(--gb-primary); }
   .gb-page-btn:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
+  .gb-footer a:hover { color: var(--gb-primary); }
 }
 </style>

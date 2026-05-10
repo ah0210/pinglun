@@ -1,4 +1,4 @@
-# 自游人留言板（CF-Guestbook）
+# 自游人留言板（CF-Guestbook）v1.0.0
 
 基于 **Cloudflare Pages + D1** 的留言板系统，可嵌入 Hugo/FixIt 博客。
 
@@ -17,6 +17,7 @@
 - ✅ 邮箱验证才能留言（前后端双重拦截，管理员豁免）
 - 🪟 认证弹窗系统（登录/注册/找回密码/重置密码/修改密码/修改邮箱）
 - 🧭 导航栏认证栏（`<gb-auth-bar>` Web Component + `window.GuestBoard` 全局 API）
+- 📱 移动端优化（消除双击延迟、44px 最小触摸区域、`:active` 替代 `:hover`）
 - 🔄 CORS 跨域支持、Gravatar 头像自动生成、API 错误码体系统一
 
 ## 快速开始
@@ -65,10 +66,6 @@ EMAIL_DOMAIN = "你的Resend验证域名"
 pnpm run db:init
 pnpm run db:seed
 
-# 如果是升级现有数据库，执行迁移
-pnpm run db:migrate
-pnpm run db:migrate:v2
-
 # 启动本地开发服务器（先构建再启动）
 pnpm run dev
 ```
@@ -86,18 +83,11 @@ npx wrangler d1 execute guestbook --local --command "SELECT * FROM board_config"
 # 执行 SQL 文件
 npx wrangler d1 execute guestbook --local --file=sql/001_init.sql
 
-# 数据库迁移（升级已有数据库）
-pnpm run db:migrate
-
-# 增删改
-npx wrangler d1 execute guestbook --local --command "DELETE FROM users WHERE id = 1"
-
 # 重置本地数据库：删除 .wrangler/state/v3/d1 目录后重新执行
 pnpm run db:init && pnpm run db:seed
 
 # 操作远程数据库（加 --remote，需先 wrangler login）
 npx wrangler d1 execute guestbook --remote --command "SELECT * FROM users"
-pnpm run db:migrate:remote
 ```
 
 ### 5. 本地测试 Widget 嵌入
@@ -187,9 +177,6 @@ wrangler pages deploy dist
 ```bash
 pnpm run db:init:remote
 pnpm run db:seed:remote
-# 如需升级远程数据库
-pnpm run db:migrate:remote
-pnpm run db:migrate:v2:remote
 ```
 
 ### 9. 设置生产密钥
@@ -199,6 +186,54 @@ wrangler secret put JWT_SECRET
 wrangler secret put RESEND_API_KEY
 wrangler secret put TURNSTILE_SECRET_KEY
 ```
+
+## 数据库升级
+
+v1.0.0 已将所有表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。
+
+如果未来版本需要升级数据库，请按以下步骤操作：
+
+### 1. 创建迁移脚本
+
+在 `sql/` 目录下创建新的迁移文件，命名格式 `00N_description.sql`（N 为序号，如 `006_add_new_field.sql`）：
+
+```sql
+-- 迁移：006_add_new_field
+-- 日期：2026-xx-xx
+-- 说明：为 users 表新增 xxx 字段
+
+ALTER TABLE users ADD COLUMN new_field TEXT DEFAULT '';
+
+-- 记录迁移
+INSERT OR IGNORE INTO _migrations (name) VALUES ('006_add_new_field');
+```
+
+### 2. 在 package.json 中添加迁移脚本
+
+```json
+{
+  "scripts": {
+    "db:migrate:v4": "wrangler d1 execute guestbook --local --file=sql/006_add_new_field.sql",
+    "db:migrate:v4:remote": "wrangler d1 execute guestbook --remote --file=sql/006_add_new_field.sql"
+  }
+}
+```
+
+### 3. 执行迁移
+
+```bash
+# 本地
+pnpm run db:migrate:v4
+
+# 远程
+pnpm run db:migrate:v4:remote
+```
+
+### 4. 更新 001_init.sql
+
+同时将新字段/表同步到 `001_init.sql` 中，确保新部署的用户使用 `db:init` 即可获得完整最新的数据库结构，并更新 `_migrations` 表的插入记录。
+
+> **注意**：`_migrations` 表用于追踪已执行的迁移，防止重复执行。所有迁移脚本应包含 `INSERT OR IGNORE INTO _migrations` 语句。
 
 ## Hugo 集成
 
@@ -361,10 +396,6 @@ GuestBoard.unmountAuthBar();
 <button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'register'},composed:true}))">注册</button>
 ```
 
-## 许可
-
-MIT
-
 ## 测试
 
 ### 类型检查
@@ -388,7 +419,6 @@ pnpm install
 # 2. 初始化本地数据库（首次）
 pnpm run db:init
 pnpm run db:seed
-pnpm run db:migrate:v2
 
 # 3. 构建并启动本地服务
 pnpm run dev
@@ -437,3 +467,13 @@ pnpm run test:widget
 ```
 
 浏览器访问 `http://127.0.0.1:8788/test-widget.html`，页面会自动检测 API/JS/CSS 并渲染留言板。
+
+## 许可
+
+本软件使用自定义许可协议，详见 [LICENSE](./LICENSE) 文件。
+
+- ✅ 允许个人非商业用途使用、修改和分发
+- 🚫 禁止商业用途
+- 🚫 禁止移除或修改版权声明和许可声明
+
+版权所有 © 自游人 https://www.17you.com/
