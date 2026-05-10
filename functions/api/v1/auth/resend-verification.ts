@@ -32,9 +32,10 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const verifyToken = generateToken();
   const expiresAt = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
 
+  const verifyTokenHash = await hashToken(verifyToken);
   await env.DB.prepare(
     `INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)`
-  ).bind(user!.userId, verifyToken, expiresAt).run();
+  ).bind(user!.userId, verifyTokenHash, expiresAt).run();
 
   // 发送邮件
   const verifyUrl = `${env.PUBLIC_URL}/api/v1/auth/verify-email?token=${verifyToken}`;

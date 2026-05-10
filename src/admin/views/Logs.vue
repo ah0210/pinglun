@@ -33,7 +33,7 @@ const columns = [
   { title: '对象ID', key: 'targetId', width: 80 },
   { title: '详情', key: 'detail', ellipsis: { tooltip: true } },
   { title: 'IP', key: 'ipAddress', width: 130 },
-  { title: '时间', key: 'createdAt', width: 160 },
+  { title: '时间', key: 'createdAt', width: 170, render: (row: any) => formatTime(row.createdAt) },
 ];
 
 async function fetchLogs(p = 1) {
@@ -59,4 +59,12 @@ async function fetchLogs(p = 1) {
 }
 
 onMounted(() => fetchLogs());
+
+function formatTime(utcStr: string | null | undefined): string {
+  if (!utcStr) return '-';
+  const d = new Date(utcStr + 'Z');
+  if (isNaN(d.getTime())) return utcStr;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 </script>

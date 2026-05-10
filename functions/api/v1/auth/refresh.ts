@@ -84,7 +84,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': `refresh_token=${newRefreshToken}; HttpOnly; Secure; SameSite=None; Path=/api/v1/auth; Max-Age=${refreshExpiry}`,
+      'Set-Cookie': `refresh_token=${newRefreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=${refreshExpiry}`,
     },
   });
 }, { requireAuth: false });

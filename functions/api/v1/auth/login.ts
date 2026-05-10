@@ -46,7 +46,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   if (!user) {
     recordFailedAttempt(clientIP);
-    return errorResponse(ErrorCode.USER_NOT_FOUND, '用户名或密码错误', 401);
+    return errorResponse(ErrorCode.WRONG_PASSWORD, '用户名或密码错误', 401);
   }
 
   // 验证密码
@@ -100,7 +100,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': `refresh_token=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/api/v1/auth; Max-Age=${refreshExpiry}`,
+      'Set-Cookie': `refresh_token=${refreshToken}; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=${refreshExpiry}`,
     },
   });
 }, { requireAuth: false });

@@ -5,7 +5,8 @@
     <n-space style="margin-bottom: 16px;">
       <n-select v-model:value="filters.role" :options="roleOptions" placeholder="角色筛选" style="width: 120px" clearable />
       <n-select v-model:value="filters.status" :options="userStatusOptions" placeholder="状态筛选" style="width: 120px" clearable />
-      <n-input v-model:value="filters.search" placeholder="搜索用户名/邮箱" style="width: 200px" clearable />
+      <n-input v-model:value="filters.search" placeholder="搜索用户名/邮箱" style="width: 200px" clearable @keyup.enter="fetchUsers()" />
+      <n-button type="primary" @click="fetchUsers()">搜索</n-button>
     </n-space>
 
     <n-data-table :columns="columns" :data="users" :loading="loading" />
@@ -15,7 +16,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, h } from 'vue';
+import { ref, reactive, onMounted, h, watch } from 'vue';
 import { NH2, NSpace, NSelect, NInput, NButton, NDataTable, NPagination, NTag, useMessage, useDialog } from 'naive-ui';
 import { useAuthStore } from '../stores/auth';
 
@@ -45,13 +46,15 @@ const columns = [
   { title: '用户名', key: 'username', width: 120 },
   { title: '显示名', key: 'displayName', width: 120 },
   { title: '邮箱', key: 'email', width: 180 },
+  { title: '邮箱验证', key: 'emailVerified', width: 90, render: (row: any) => row.emailVerified ? h(NTag, { type: 'success', size: 'small' }, () => '已验证') : h(NTag, { type: 'warning', size: 'small' }, () => '未验证') },
   { title: '角色', key: 'role', width: 80, render: (row: any) => row.role === 'admin' ? h(NTag, { type: 'info', size: 'small' }, () => '管理员') : h(NTag, { size: 'small' }, () => '用户') },
   { title: '状态', key: 'status', width: 80, render: (row: any) => {
     const map: Record<string, any> = { active: { type: 'success', label: '正常' }, disabled: { type: 'warning', label: '禁用' }, banned: { type: 'error', label: '封禁' } };
     const s = map[row.status] || { type: 'default', label: row.status };
     return h(NTag, { type: s.type, size: 'small' }, () => s.label);
   }},
-  { title: '注册时间', key: 'createdAt', width: 160 },
+  { title: '注册时间', key: 'createdAt', width: 170, render: (row: any) => formatTime(row.createdAt) },
+  { title: '验证时间', key: 'emailVerifiedAt', width: 170, render: (row: any) => row.emailVerifiedAt ? formatTime(row.emailVerifiedAt) : '-' },
   {
     title: '操作', key: 'actions', width: 180,
     render: (row: any) => {
@@ -129,4 +132,19 @@ async function handleStatus(id: number, status: string) {
 }
 
 onMounted(() => fetchUsers());
+
+// 筛选条件变化时自动查询
+watch(() => [filters.role, filters.status], () => fetchUsers());
+// 搜索框清空时自动查询
+watch(() => filters.search, (val, oldVal) => {
+  if (oldVal && !val) fetchUsers();
+});
+
+function formatTime(utcStr: string | null | undefined): string {
+  if (!utcStr) return '-';
+  const d = new Date(utcStr + 'Z');
+  if (isNaN(d.getTime())) return utcStr;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 </script>

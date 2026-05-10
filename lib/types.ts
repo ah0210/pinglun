@@ -92,8 +92,8 @@ export interface PublicUser {
   id: number;
   username: string;
   displayName: string;
-  email: string;
-  emailVerified: boolean;
+  email?: string;
+  emailVerified?: boolean;
   avatar: string;
   role: string;
   bio: string;

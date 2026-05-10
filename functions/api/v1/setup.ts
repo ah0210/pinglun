@@ -21,6 +21,14 @@ function validatePasswordStrength(password: string): string | null {
 }
 
 export const onRequestPost = apiHandler(async (request, env) => {
+  // 检查是否已完成初始化（不可逆标记，记录在 _migrations 中）
+  const setupDone = await env.DB.prepare(
+    "SELECT name FROM _migrations WHERE name = 'setup_done'"
+  ).first<{ name: string }>();
+  if (setupDone) {
+    return errorResponse(ErrorCode.SETUP_ALREADY_DONE, '系统已初始化，不可重复操作', 403);
+  }
+
   // 检查是否已有管理员
   const adminCount = await env.DB.prepare(
     "SELECT COUNT(*) as count FROM users WHERE role = 'admin'"
@@ -68,6 +76,11 @@ export const onRequestPost = apiHandler(async (request, env) => {
     `INSERT INTO users (username, email, password_hash, role, avatar, email_verified)
      VALUES (?, ?, ?, 'admin', ?, 1)`
   ).bind(username, email, passwordHash, avatar).run();
+
+  // 标记系统已初始化（不可逆）
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO _migrations (name) VALUES ('setup_done')"
+  ).run();
 
   return successResponse({
     message: '管理员账号创建成功',

@@ -44,7 +44,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   // 更新用户邮箱验证状态
   await env.DB.prepare(
-    'UPDATE users SET email_verified = 1 WHERE id = ?'
+    'UPDATE users SET email_verified = 1, email_verified_at = datetime("now") WHERE id = ?'
   ).bind(verification.user_id).run();
 
   return new Response(buildVerifyResultHtml('邮箱验证成功', '您的邮箱已完成验证，现在可以正常使用留言功能。'), {

@@ -70,8 +70,6 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       id: m.user_id,
       username: m.username,
       displayName: m.display_name || m.username,
-      email: m.email,
-      emailVerified: false, // 列表中不暴露验证状态，统一显示
       avatar: m.avatar || getAvatarUrl(m.email),
       role: m.user_role,
       bio: m.bio,
@@ -230,8 +228,6 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     id: user.userId,
     username: user.username,
     displayName: user.username,
-    email: '',
-    emailVerified: false,
     avatar: '',
     role: user.role,
     bio: '',

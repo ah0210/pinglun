@@ -5,7 +5,8 @@
     <n-space style="margin-bottom: 16px;">
       <n-select v-model:value="filters.status" :options="statusOptions" placeholder="状态筛选" style="width: 120px" clearable />
       <n-select v-model:value="filters.isSecret" :options="secretOptions" placeholder="类型筛选" style="width: 120px" clearable />
-      <n-input v-model:value="filters.search" placeholder="搜索留言内容" style="width: 200px" clearable />
+      <n-input v-model:value="filters.search" placeholder="搜索留言内容" style="width: 200px" clearable @keyup.enter="fetchMessages()" />
+      <n-button type="primary" @click="fetchMessages()">搜索</n-button>
       <n-button type="error" :disabled="checkedIds.length === 0" @click="handleBatchDelete">
         批量删除 ({{ checkedIds.length }})
       </n-button>
@@ -16,8 +17,7 @@
       :data="messages"
       :loading="loading"
       :row-key="(row: any) => row.id"
-      :checked-row-keys="checkedIds"
-      @update:checked-row-keys="checkedIds = $event as number[]"
+      v-model:checked-row-keys="checkedIds"
     />
 
     <n-pagination
@@ -30,7 +30,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, onMounted, h } from 'vue';
+import { ref, reactive, onMounted, h, watch } from 'vue';
 import { NH2, NSpace, NSelect, NInput, NButton, NDataTable, NPagination, NTag, useMessage, useDialog } from 'naive-ui';
 import type { DataTableColumns } from 'naive-ui';
 import type { PublicMessage } from '../../shared/types';
@@ -44,7 +44,7 @@ const messages = ref<any[]>([]);
 const loading = ref(false);
 const page = ref(1);
 const totalPages = ref(1);
-const checkedIds = ref<number[]>([]);
+const checkedIds = ref<(number | string)[]>([]);
 
 const filters = reactive({ status: null as string | null, isSecret: null as string | null, search: '' });
 
@@ -80,7 +80,7 @@ const columns: DataTableColumns<any> = [
       return h(NTag, { type: s.type, size: 'small' }, () => s.label);
     },
   },
-  { title: '时间', key: 'createdAt', width: 160 },
+  { title: '时间', key: 'createdAt', width: 170, render: (row) => formatTime(row.createdAt) },
   {
     title: '操作', key: 'actions', width: 160,
     render: (row) => {
@@ -168,18 +168,44 @@ async function handleBatchDelete() {
     positiveText: '删除',
     negativeText: '取消',
     onPositiveClick: async () => {
-      const resp = await fetch('/api/v1/admin/messages/batch-delete', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ ids: checkedIds.value }),
-      });
-      const data = await resp.json();
-      if (data.success) { message.success(`已删除 ${data.data.deleted} 条`); checkedIds.value = []; fetchMessages(page.value); }
-      else message.error(data.error?.message || '删除失败');
+      try {
+        const ids = checkedIds.value.map(Number);
+        const resp = await fetch('/api/v1/admin/messages/batch-delete', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authStore.token}`, 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids }),
+        });
+        const data = await resp.json();
+        if (data.success) {
+          message.success(`已删除 ${data.data.deleted} 条`);
+          checkedIds.value = [];
+          fetchMessages(page.value);
+        } else {
+          message.error(data.error?.message || '删除失败');
+        }
+      } catch (e: any) {
+        message.error(e.message || '网络错误');
+      }
     },
   });
 }
 
 onMounted(() => fetchMessages());
+
+// 筛选条件变化时自动查询
+watch(() => [filters.status, filters.isSecret], () => fetchMessages());
+// 搜索框清空时自动查询
+watch(() => filters.search, (val, oldVal) => {
+  if (oldVal && !val) fetchMessages();
+});
+
+function formatTime(utcStr: string | null | undefined): string {
+  if (!utcStr) return '-';
+  // D1 datetime('now') 返回 UTC 格式 "2025-05-10 08:53:00"，没有时区后缀
+  const d = new Date(utcStr + 'Z');
+  if (isNaN(d.getTime())) return utcStr;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
 </script>

@@ -34,7 +34,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   ).bind(...binds).first<{ total: number }>();
 
   const users = await env.DB.prepare(
-    `SELECT id, username, display_name, email, email_verified, role, avatar, bio, status, last_login_at, created_at
+    `SELECT id, username, display_name, email, email_verified, email_verified_at, role, avatar, bio, status, last_login_at, created_at
      FROM users ${whereClause}
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`
@@ -46,6 +46,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     displayName: u.display_name || u.username,
     email: u.email,
     emailVerified: u.email_verified === 1,
+    emailVerifiedAt: u.email_verified_at,
     avatar: u.avatar || getAvatarUrl(u.email),
     role: u.role,
     status: u.status,
