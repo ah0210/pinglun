@@ -80,6 +80,7 @@
     <AuthModal
       ref="authModalRef"
       :site-key="resolvedSiteKey"
+      :theme="effectiveTheme"
       @close="onAuthModalClose"
     />
   </div>

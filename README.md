@@ -235,14 +235,18 @@ pnpm run db:migrate:v4:remote
 
 > **注意**：`_migrations` 表用于追踪已执行的迁移，防止重复执行。所有迁移脚本应包含 `INSERT OR IGNORE INTO _migrations` 语句。
 
-## Hugo 集成
+## 页面集成
+
+留言板以 Web Component 形式嵌入宿主页面，支持 Hugo 和任意网站。
+
+### 方式一：Hugo 集成（推荐）
 
 将 `hugo-templates/` 中的文件复制到你的 Hugo 站点：
 
 ```
 hugo-templates/
-├── layouts/partials/footer/custom.html          → 覆盖 FixIt 主题的 body-end 钩子
-├── layouts/partials/post/footer-custom.html     → 文章底部自动嵌入
+├── layouts/partials/footer/custom.html          → Widget 懒加载脚本（自动检测容器进入视口时加载）
+├── layouts/partials/post/footer-custom.html     → 文章底部自动嵌入留言板
 ├── layouts/shortcodes/guestbook.html            → 手动插入短代码
 └── config-example.toml                          → 配置参考
 ```
@@ -252,11 +256,11 @@ hugo-templates/
 ```toml
 [params.guestbook]
   enable = true
-  apiBase = "https://cf-guestbook.pages.dev/api/v1"
-  siteKey = "你的Turnstile Site Key"
-  theme = "auto"
-  maxLength = 500
-  minLength = 2
+  apiBase = "https://cf-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
+  siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
+  theme = "auto"                                         # "light" | "dark" | "auto"
+  maxLength = 500                                        # 留言最大字数
+  minLength = 2                                          # 留言最小字数
 ```
 
 在文章 Front Matter 中可关闭留言板：
@@ -270,6 +274,172 @@ guestbook: false
 ```markdown
 {{</* guestbook pageId="/about/" */>}}
 ```
+
+### 方式二：任意页面集成
+
+#### 1. 加载 Widget JS
+
+```html
+<script defer src="https://your-domain.com/widget.js"></script>
+```
+
+#### 2. 插入容器并初始化
+
+```html
+<div id="guestbook"></div>
+<script>
+GuestbookWidget.init({
+  container: '#guestbook',
+  pageId: '/about/',              // 当前页面标识，用于区分不同页面的留言
+  apiBase: 'https://your-domain.com',
+  siteKey: '0x4AAAAAAA...',       // Turnstile Site Key
+  theme: 'auto',                  // "light" | "dark" | "auto"
+  maxLength: 500
+});
+</script>
+```
+
+或直接使用 HTML 标签（需确保 `widget.js` 已加载）：
+
+```html
+<guestbook-widget
+  api-base="https://your-domain.com/api/v1"
+  site-key="0x4AAAAAAA..."
+  page-id="/about/"
+  theme="auto"
+  max-length="500"
+/>
+```
+
+### 自定义主题样式
+
+留言板和认证栏均使用 CSS 变量控制样式，变量从宿主页面穿透 Shadow DOM 生效。在宿主页面中覆盖 `--guestbook-*` 变量即可自定义主题：
+
+```css
+/* 全局设置，所有留言板组件继承 */
+:root {
+  --guestbook-primary: #e74c3c;
+  --guestbook-primary-hover: #d4402e;
+  --guestbook-font-family: "LXGW WenKai", sans-serif;
+  --guestbook-border-radius: 4px;
+}
+
+/* 按组件单独设置 */
+guestbook-widget {
+  --guestbook-primary: #e74c3c;
+}
+gb-auth-bar {
+  --guestbook-primary: #3498db;
+}
+
+/* 直接在 HTML 属性中 */
+<guestbook-widget
+  style="--guestbook-primary: #e74c3c"
+  ...
+/>
+```
+
+#### 完整 CSS 变量清单
+
+| 变量名 | 默认值 | 暗色默认值 | 说明 |
+|--------|--------|-----------|------|
+| `--guestbook-primary` | `#4a6cf7` | — | 主色调（按钮、链接、高亮） |
+| `--guestbook-primary-hover` | `#3b5de7` | — | 主色调 hover 状态 |
+| `--guestbook-bg` | `#ffffff` | `#1a1a2e` | 背景色 |
+| `--guestbook-bg-secondary` | `#f7f8fa` | `#16213e` | 次要背景色（输入框背景、提示区） |
+| `--guestbook-text` | `#333333` | `#e0e0e0` | 主文字色 |
+| `--guestbook-text-secondary` | `#666666` | `#a0a0a0` | 次要文字色（时间、提示） |
+| `--guestbook-border` | `#e0e0e0` | `#2d2d44` | 边框色 |
+| `--guestbook-border-radius` | `8px` | — | 圆角大小 |
+| `--guestbook-shadow` | `0 2px 8px rgba(0,0,0,0.08)` | `0 2px 8px rgba(0,0,0,0.3)` | 阴影 |
+| `--guestbook-font-size` | `14px` | — | 字号 |
+| `--guestbook-font-family` | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` | — | 字体族 |
+
+> 暗色默认值在 `theme="dark"` 时自动生效，也可单独覆盖。
+
+### 暗色模式同步
+
+```html
+<!-- 方式一：跟随系统偏好（默认行为，无需额外配置） -->
+<guestbook-widget theme="auto" ... />
+
+<!-- 方式二：强制指定 -->
+<guestbook-widget theme="dark" ... />
+
+<!-- 方式三：与宿主主题 JS 联动（如 Hugo FixIt 主题通过 html.dark 切换） -->
+<script>
+function syncTheme() {
+  const isDark = document.documentElement.classList.contains('dark');
+  document.querySelectorAll('guestbook-widget, gb-auth-bar').forEach(el => {
+    el.setAttribute('theme', isDark ? 'dark' : 'light');
+  });
+}
+// 监听宿主主题切换
+new MutationObserver(syncTheme)
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+syncTheme();
+</script>
+```
+
+### 导航栏认证栏
+
+在网站导航栏展示认证状态，使用 `<gb-auth-bar>` Web Component：
+
+```html
+<!-- HTML 标签方式 -->
+<gb-auth-bar api-base="https://your-domain.com/api/v1" theme="auto"></gb-auth-bar>
+
+<!-- JS API 方式（自动从页面上的 guestbook-widget 读取 apiBase 和 theme） -->
+<script>
+GuestBoard.mountAuthBar('#nav-auth');
+</script>
+```
+
+### 全局 JS API
+
+Widget 加载后自动暴露 `window.GuestBoard` 全局对象：
+
+```js
+// 获取当前用户
+GuestBoard.getUser();  // PublicUser | null
+
+// 打开认证弹窗
+GuestBoard.openAuth('login');       // 登录
+GuestBoard.openAuth('register');    // 注册
+GuestBoard.openAuth('forgot-password');  // 找回密码
+
+// 退出登录
+GuestBoard.logout();
+
+// 监听认证状态变化
+const unsub = GuestBoard.onAuthChange((user) => {
+  console.log(user ? `已登录: ${user.username}` : '未登录');
+});
+
+// 挂载认证栏到指定容器
+GuestBoard.mountAuthBar('#nav-auth');
+
+// 卸载认证栏
+GuestBoard.unmountAuthBar();
+```
+
+### 通过 CustomEvent 触发（纯 HTML 可用）
+
+```html
+<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'login'},composed:true}))">登录</button>
+<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'register'},composed:true}))">注册</button>
+```
+
+### CSP 策略
+
+如果宿主页面启用了 Content Security Policy，需允许以下域名：
+
+| 指令 | 域名 | 用途 |
+|------|------|------|
+| `script-src` | `your-domain.com` | widget.js |
+| `style-src` | `your-domain.com` | 内联样式（adoptedStyleSheets） |
+| `img-src` | `cravatar.cn` | Gravatar 头像 |
+| `connect-src` | `your-domain.com` | API 请求 |
 
 ## API 端点
 
@@ -349,123 +519,6 @@ cf-guestbook/
 - 找回密码防邮箱枚举（无论邮箱是否存在均返回相同提示）
 - 找回密码双维度频率限制（邮箱 1 次/分钟 + IP 3 次/5分钟）
 - 邮箱验证前后端双重拦截留言，管理员豁免
-
-## 外部页面集成
-
-### 导航栏认证栏
-
-在网站导航栏展示认证状态，使用 `<gb-auth-bar>` Web Component：
-
-```html
-<!-- 在导航栏中放置认证栏 -->
-<gb-auth-bar api-base="https://your-domain.com/api/v1" theme="auto"></gb-auth-bar>
-```
-
-### 自定义主题样式
-
-留言板和认证栏均使用 CSS 变量控制样式，变量从宿主页面穿透 Shadow DOM 生效。在宿主页面中覆盖 `--guestbook-*` 变量即可自定义主题：
-
-```css
-/* 全局设置，所有留言板组件继承 */
-:root {
-  --guestbook-primary: #e74c3c;
-  --guestbook-primary-hover: #d4402e;
-  --guestbook-font-family: "LXGW WenKai", sans-serif;
-  --guestbook-border-radius: 4px;
-}
-
-/* 按组件单独设置 */
-guestbook-widget {
-  --guestbook-primary: #e74c3c;
-}
-gb-auth-bar {
-  --guestbook-primary: #3498db;
-}
-
-/* 直接在 HTML 属性中 */
-<guestbook-widget
-  style="--guestbook-primary: #e74c3c"
-  ...
-/>
-```
-
-#### 完整 CSS 变量清单
-
-| 变量名 | 默认值 | 暗色默认值 | 说明 |
-|--------|--------|-----------|------|
-| `--guestbook-primary` | `#4a6cf7` | — | 主色调（按钮、链接、高亮） |
-| `--guestbook-primary-hover` | `#3b5de7` | — | 主色调 hover 状态 |
-| `--guestbook-bg` | `#ffffff` | `#1a1a2e` | 背景色 |
-| `--guestbook-bg-secondary` | `#f7f8fa` | `#16213e` | 次要背景色（输入框背景、提示区） |
-| `--guestbook-text` | `#333333` | `#e0e0e0` | 主文字色 |
-| `--guestbook-text-secondary` | `#666666` | `#a0a0a0` | 次要文字色（时间、提示） |
-| `--guestbook-border` | `#e0e0e0` | `#2d2d44` | 边框色 |
-| `--guestbook-border-radius` | `8px` | — | 圆角大小 |
-| `--guestbook-shadow` | `0 2px 8px rgba(0,0,0,0.08)` | `0 2px 8px rgba(0,0,0,0.3)` | 阴影 |
-| `--guestbook-font-size` | `14px` | — | 字号 |
-| `--guestbook-font-family` | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` | — | 字体族 |
-
-> 暗色默认值在 `theme="dark"` 时自动生效，也可单独覆盖。
-
-### 暗色模式同步
-
-```html
-<!-- 方式一：跟随系统偏好（默认行为） -->
-<guestbook-widget theme="auto" ... />
-<gb-auth-bar theme="auto" ... />
-
-<!-- 方式二：强制指定 -->
-<guestbook-widget theme="dark" ... />
-
-<!-- 方式三：与 Hugo 主题 JS 联动 -->
-<script>
-function syncTheme() {
-  const isDark = document.documentElement.classList.contains('dark');
-  document.querySelectorAll('guestbook-widget, gb-auth-bar').forEach(el => {
-    el.setAttribute('theme', isDark ? 'dark' : 'light');
-  });
-}
-// 监听宿主主题切换
-new MutationObserver(syncTheme)
-  .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-syncTheme();
-</script>
-```
-
-### 全局 JS API
-
-Widget 加载后自动暴露 `window.GuestBoard` 全局对象：
-
-```js
-// 获取当前用户
-GuestBoard.getUser();  // PublicUser | null
-
-// 打开认证弹窗
-GuestBoard.openAuth('login');       // 登录
-GuestBoard.openAuth('register');    // 注册
-GuestBoard.openAuth('forgot-password');  // 找回密码
-
-// 退出登录
-GuestBoard.logout();
-
-// 监听认证状态变化
-const unsub = GuestBoard.onAuthChange((user) => {
-  console.log(user ? `已登录: ${user.username}` : '未登录');
-});
-
-// 挂载认证栏到指定容器
-GuestBoard.mountAuthBar('#nav-auth');
-
-// 卸载认证栏
-GuestBoard.unmountAuthBar();
-```
-
-### 通过 CustomEvent 触发（纯 HTML 可用）
-
-```html
-<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'login'},composed:true}))">登录</button>
-<button onclick="document.dispatchEvent(new CustomEvent('gb-open-auth', {detail:{mode:'register'},composed:true}))">注册</button>
-```
 
 ## 测试
 

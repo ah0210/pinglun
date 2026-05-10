@@ -8,7 +8,7 @@
         <span class="gb-dropdown-arrow" :class="{ open: isOpen }">▼</span>
       </slot>
     </div>
-    <div v-if="isOpen" class="gb-dropdown-menu">
+    <div v-if="isOpen" class="gb-dropdown-menu" :style="menuStyle">
       <div class="gb-dropdown-header">
         <div class="gb-dropdown-username">{{ user.displayName }}</div>
         <div class="gb-dropdown-email">{{ user.email }}</div>
@@ -54,13 +54,40 @@ const emit = defineEmits<{
 const auth = useAuth();
 const isOpen = ref(false);
 const dropdownRef = ref<HTMLElement | null>(null);
+const menuStyle = ref<Record<string, string>>({});
 
 function toggle() {
-  isOpen.value = !isOpen.value;
+  if (isOpen.value) {
+    close();
+  } else {
+    isOpen.value = true;
+    updateMenuPosition();
+  }
 }
 
 function close() {
   isOpen.value = false;
+}
+
+/** 使用 fixed 定位，动态计算下拉菜单位置，避免被祖先 overflow:hidden 裁剪 */
+function updateMenuPosition() {
+  requestAnimationFrame(() => {
+    const trigger = dropdownRef.value?.querySelector('.gb-dropdown-trigger') as HTMLElement;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 200;
+    const margin = 6;
+    // 右对齐：菜单右边缘与触发器右边缘对齐
+    const right = window.innerWidth - rect.right;
+    // 确保不超出视口左侧
+    const adjustedRight = right + menuWidth > window.innerWidth ? window.innerWidth - menuWidth - 8 : right;
+    menuStyle.value = {
+      position: 'fixed',
+      top: `${rect.bottom + margin}px`,
+      right: `${Math.max(0, adjustedRight)}px`,
+      left: 'auto',
+    };
+  });
 }
 
 function handleChangeDisplayName() {
@@ -96,14 +123,22 @@ function onClickOutside(e: Event) {
   }
 }
 
+function onScroll() {
+  if (isOpen.value) updateMenuPosition();
+}
+
 onMounted(() => {
   document.addEventListener('click', onClickOutside);
   document.addEventListener('touchend', onClickOutside, { passive: true });
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside);
   document.removeEventListener('touchend', onClickOutside);
+  window.removeEventListener('scroll', onScroll);
+  window.removeEventListener('resize', onScroll);
 });
 </script>
 
@@ -152,10 +187,7 @@ onUnmounted(() => {
 }
 
 .gb-dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 6px;
+  position: fixed;
   background: var(--gb-bg, #fff);
   border: 1px solid var(--gb-border, #e0e0e0);
   border-radius: var(--gb-border-radius, 8px);
@@ -249,7 +281,6 @@ onUnmounted(() => {
 /* 移动端适配 */
 @media (max-width: 480px) {
   .gb-dropdown-menu {
-    right: -8px;
     min-width: 180px;
   }
   .gb-dropdown-name {

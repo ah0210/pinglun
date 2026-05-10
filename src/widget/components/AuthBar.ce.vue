@@ -21,6 +21,7 @@
     <AuthModal
       ref="authModalRef"
       :site-key="siteKey"
+      :theme="effectiveTheme"
       @close="onAuthModalClose"
     />
   </div>
