@@ -84,8 +84,8 @@ async function handleLogout() {
   emit('logout');
 }
 
-// 点击外部关闭
-function onClickOutside(e: MouseEvent) {
+// 点击外部关闭（兼容移动端 touch 事件）
+function onClickOutside(e: Event) {
   // Shadow DOM 中 e.target 会被重定向为宿主元素，
   // 使用 composedPath() 获取完整事件路径来正确判断点击来源
   if (dropdownRef.value) {
@@ -98,10 +98,12 @@ function onClickOutside(e: MouseEvent) {
 
 onMounted(() => {
   document.addEventListener('click', onClickOutside);
+  document.addEventListener('touchend', onClickOutside, { passive: true });
 });
 
 onUnmounted(() => {
   document.removeEventListener('click', onClickOutside);
+  document.removeEventListener('touchend', onClickOutside);
 });
 </script>
 
@@ -119,6 +121,9 @@ onUnmounted(() => {
   padding: 4px 8px;
   border-radius: 20px;
   transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 .gb-dropdown-trigger:hover {
   background: var(--gb-bg-secondary, #f7f8fa);
@@ -213,7 +218,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 14px;
+  padding: 10px 14px;
   border: none;
   background: none;
   font-size: 13px;
@@ -221,8 +226,14 @@ onUnmounted(() => {
   cursor: pointer;
   font-family: inherit;
   text-align: left;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
-.gb-dropdown-item:hover {
+.gb-dropdown-item:active {
+  background: var(--gb-bg-secondary, #f7f8fa);
+}
+.gb-dropdown-item:active {
   background: var(--gb-bg-secondary, #f7f8fa);
 }
 .gb-dropdown-item-danger {
@@ -243,6 +254,16 @@ onUnmounted(() => {
   }
   .gb-dropdown-name {
     display: none;
+  }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-dropdown-trigger:hover {
+    background: var(--gb-bg-secondary, #f7f8fa);
+  }
+  .gb-dropdown-item:hover {
+    background: var(--gb-bg-secondary, #f7f8fa);
   }
 }
 </style>

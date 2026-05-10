@@ -196,3 +196,111 @@ function formatTime(dateStr: string): string {
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 </script>
+
+<style scoped>
+.gb-message-item {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--gb-border, #e0e0e0);
+}
+.gb-message-item:last-child { border-bottom: none; }
+
+.gb-message-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.gb-avatar {
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  background: var(--gb-bg-secondary, #f7f8fa);
+}
+.gb-message-meta { flex: 1; min-width: 0; }
+.gb-username { font-weight: 500; color: var(--gb-text, #333); }
+.gb-time { font-size: 12px; color: var(--gb-text-secondary, #999); margin-left: 8px; }
+.gb-secret-badge {
+  font-size: 11px; padding: 1px 6px; border-radius: 10px;
+  background: var(--gb-warning, #f39c12); color: #fff; margin-left: 6px;
+}
+.gb-admin-badge {
+  font-size: 11px; padding: 1px 6px; border-radius: 10px;
+  background: var(--gb-primary, #4a6cf7); color: #fff; margin-left: 6px;
+}
+.gb-status-pending { color: var(--gb-warning, #f39c12); font-size: 12px; }
+
+.gb-message-content {
+  margin: 0; line-height: 1.6; word-break: break-word; color: var(--gb-text, #333);
+}
+.gb-secret-placeholder {
+  color: var(--gb-text-secondary, #999); font-style: italic;
+}
+
+.gb-reply-quote {
+  margin-bottom: 8px; padding: 8px 12px;
+  border-left: 3px solid var(--gb-primary, #4a6cf7);
+  background: var(--gb-bg-secondary, #f7f8fa);
+  border-radius: 0 var(--gb-border-radius, 8px) var(--gb-border-radius, 8px) 0;
+  font-size: 13px; line-height: 1.5;
+}
+.gb-reply-quote-user { color: var(--gb-primary, #4a6cf7); font-weight: 500; margin-right: 4px; }
+.gb-reply-quote-content { color: var(--gb-text-secondary, #666); }
+
+.gb-message-actions { margin-top: 6px; }
+.gb-btn-reply {
+  background: none; border: none; color: var(--gb-text-secondary, #999);
+  font-size: 12px; cursor: pointer; padding: 4px 8px; font-family: inherit;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.gb-btn-reply:active { color: var(--gb-primary, #4a6cf7); }
+
+.gb-inline-reply {
+  margin-top: 10px; padding: 12px;
+  background: var(--gb-bg-secondary, #f7f8fa);
+  border-radius: var(--gb-border-radius, 8px);
+}
+.gb-reply-target {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0 8px; font-size: 13px; color: var(--gb-primary, #4a6cf7);
+}
+.gb-reply-textarea { min-height: 60px; }
+.gb-inline-reply-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+
+.gb-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 8px 16px; border: none; border-radius: var(--gb-border-radius, 8px);
+  font-size: 14px; cursor: pointer; transition: all 0.2s; font-family: inherit;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; min-height: 44px;
+}
+.gb-btn-primary { background: var(--gb-primary, #4a6cf7); color: #fff; }
+.gb-btn-primary:hover { background: var(--gb-primary-hover, #3b5de7); }
+.gb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.gb-btn-sm { padding: 5px 12px; font-size: 13px; }
+
+.gb-textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--gb-border, #e0e0e0);
+  border-radius: var(--gb-border-radius, 8px);
+  font-size: 16px; font-family: inherit; resize: vertical;
+  box-sizing: border-box; background: var(--gb-bg, #fff);
+  color: var(--gb-text, #333); line-height: 1.5;
+  -webkit-appearance: none; -webkit-tap-highlight-color: transparent;
+}
+
+.gb-hint { font-size: 12px; color: var(--gb-text-secondary, #999); }
+.gb-error {
+  margin-top: 8px; padding: 8px 12px;
+  background: rgba(231, 76, 60, 0.08); border: 1px solid rgba(231, 76, 60, 0.2);
+  border-radius: var(--gb-border-radius, 8px); color: var(--gb-danger, #e74c3c); font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .gb-message-header { gap: 8px; }
+  .gb-username {
+    display: inline-block; max-width: 120px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; vertical-align: middle;
+  }
+  .gb-time { display: block; margin-left: 0; margin-top: 2px; }
+  .gb-inline-reply-actions { flex-wrap: wrap; }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-btn-reply:hover { color: var(--gb-primary, #4a6cf7); }
+  .gb-btn-primary:hover { background: var(--gb-primary-hover, #3b5de7); }
+}
+</style>

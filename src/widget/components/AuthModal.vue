@@ -1,6 +1,6 @@
 <!-- src/widget/components/AuthModal.vue — 认证弹窗（6 种模式） -->
 <template>
-    <div v-if="visible" class="gb-modal-overlay" @click.self="handleOverlayClick">
+    <div v-if="visible" class="gb-modal-overlay" @click="handleOverlayClick" @touchend="handleOverlayTouchEnd">
       <div class="gb-modal">
         <button class="gb-modal-close" @click="close">&times;</button>
 
@@ -229,8 +229,19 @@ function resetForm() {
   };
 }
 
-function handleOverlayClick() {
-  close();
+function handleOverlayClick(e: MouseEvent) {
+  // 只有点击遮罩层本身时才关闭（不是点击弹窗内容）
+  if (e.target === e.currentTarget) {
+    close();
+  }
+}
+
+function handleOverlayTouchEnd(e: TouchEvent) {
+  // 移动端触摸关闭遮罩层
+  if (e.target === e.currentTarget) {
+    e.preventDefault(); // 阻止后续 click 事件避免重复触发
+    close();
+  }
 }
 
 // ===== Turnstile =====
@@ -477,6 +488,8 @@ defineExpose({ open, close });
   z-index: 10000;
   padding: 16px;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .gb-modal {
@@ -494,17 +507,26 @@ defineExpose({ open, close });
 
 .gb-modal-close {
   position: absolute;
-  top: 12px;
-  right: 16px;
+  top: 8px;
+  right: 8px;
   background: none;
   border: none;
-  font-size: 22px;
+  font-size: 24px;
   cursor: pointer;
   color: var(--gb-text-secondary, #999);
-  padding: 4px;
+  padding: 8px;
   line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--gb-border-radius, 8px);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .gb-modal-close:hover { color: var(--gb-text, #333); }
+.gb-modal-close:active { background: var(--gb-bg-secondary, #f7f8fa); }
 
 .gb-modal-title {
   font-size: 18px;
@@ -534,11 +556,13 @@ defineExpose({ open, close });
   padding: 8px 12px;
   border: 1px solid var(--gb-border, #e0e0e0);
   border-radius: var(--gb-border-radius, 8px);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   background: var(--gb-bg, #fff);
   color: var(--gb-text, #333);
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .gb-input:focus { outline: none; border-color: var(--gb-primary, #4a6cf7); }
 
@@ -571,6 +595,9 @@ defineExpose({ open, close });
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 
 .gb-btn-primary {
@@ -597,15 +624,20 @@ defineExpose({ open, close });
   color: var(--gb-primary, #4a6cf7);
   font-size: 13px;
   cursor: pointer;
-  padding: 0;
+  padding: 4px 0;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
-.gb-link-btn:hover { text-decoration: underline; }
+.gb-link-btn:active { opacity: 0.7; }
 
 /* 移动端适配 */
 @media (max-width: 480px) {
   .gb-modal-overlay {
-    padding: 8px;
+    padding: 0;
     align-items: flex-end;
   }
   .gb-modal {
@@ -615,11 +647,19 @@ defineExpose({ open, close });
   }
   .gb-modal-title {
     font-size: 16px;
+    padding-right: 36px;
   }
   .gb-modal-links {
     flex-direction: column;
     gap: 8px;
     align-items: center;
   }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-modal-close:hover { color: var(--gb-text, #333); }
+  .gb-btn-primary:hover { background: var(--gb-primary-hover, #3b5de7); }
+  .gb-link-btn:hover { text-decoration: underline; }
 }
 </style>

@@ -95,18 +95,27 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 
 .gb-authbar-btn-primary {
   background: #4a6cf7;
   color: #fff;
 }
-.gb-authbar-btn-primary:hover { background: #3b5de7; }
+.gb-authbar-btn-primary:active { background: #3b5de7; }
 
 .gb-authbar-btn-outline {
   background: transparent;
   color: #4a6cf7;
   border: 1px solid #4a6cf7;
 }
-.gb-authbar-btn-outline:hover { background: #f0f3ff; }
+.gb-authbar-btn-outline:active { background: #f0f3ff; }
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-authbar-btn-primary:hover { background: #3b5de7; }
+  .gb-authbar-btn-outline:hover { background: #f0f3ff; }
+}
 </style>

@@ -48,12 +48,14 @@
   padding: 10px 12px;
   border: 1px solid var(--gb-border);
   border-radius: var(--gb-border-radius);
-  font-size: var(--gb-font-size);
+  font-size: 16px;
   font-family: inherit;
   resize: vertical;
   background: var(--gb-bg);
   color: var(--gb-text);
   box-sizing: border-box;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .gb-textarea:focus { outline: none; border-color: var(--gb-primary); }
 
@@ -70,6 +72,9 @@
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 .gb-btn-primary { background: var(--gb-primary); color: #fff; }
 .gb-btn-primary:hover { background: var(--gb-primary-hover); }
@@ -81,8 +86,9 @@
 .gb-secret-toggle {
   display: flex; align-items: center; gap: 4px; cursor: pointer;
   font-size: 13px; color: var(--gb-text-secondary); user-select: none;
+  -webkit-tap-highlight-color: transparent; touch-action: manipulation; min-height: 44px;
 }
-.gb-secret-toggle input { cursor: pointer; }
+.gb-secret-toggle input { cursor: pointer; width: 18px; height: 18px; }
 
 .gb-hint { font-size: 12px; color: var(--gb-text-secondary); margin-top: 6px; }
 
@@ -143,6 +149,9 @@
   color: var(--gb-text-secondary);
   border-bottom: 2px solid transparent;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 .gb-auth-tab.active { color: var(--gb-primary); border-bottom-color: var(--gb-primary); }
 
@@ -153,11 +162,13 @@
   padding: 8px 12px;
   border: 1px solid var(--gb-border);
   border-radius: var(--gb-border-radius);
-  font-size: 14px;
+  font-size: 16px;
   font-family: inherit;
   box-sizing: border-box;
   background: var(--gb-bg);
   color: var(--gb-text);
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .gb-input:focus { outline: none; border-color: var(--gb-primary); }
 
@@ -178,8 +189,11 @@
   cursor: pointer;
   font-size: 13px;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
-.gb-page-btn:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
+.gb-page-btn:active { border-color: var(--gb-primary); color: var(--gb-primary); }
 .gb-page-btn.active { background: var(--gb-primary); color: #fff; border-color: var(--gb-primary); }
 .gb-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -220,4 +234,11 @@
   .gb-page-btn { padding: 5px 8px; font-size: 12px; }
   .gb-auth-tabs { overflow-x: auto; }
   .gb-input { font-size: 16px; }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-btn-primary:hover { background: var(--gb-primary-hover); }
+  .gb-btn-text:hover { text-decoration: underline; }
+  .gb-page-btn:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
 }

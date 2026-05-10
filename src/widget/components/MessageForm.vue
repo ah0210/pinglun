@@ -143,13 +143,16 @@ async function handleSubmit() {
   padding: 10px 12px;
   border: 1px solid var(--gb-border, #e0e0e0);
   border-radius: var(--gb-border-radius, 8px);
-  font-size: var(--gb-font-size, 14px);
+  font-size: 16px;
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
   background: var(--gb-bg, #fff);
   color: var(--gb-text, #333);
   line-height: 1.5;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .gb-textarea:focus {
   outline: none;
@@ -165,6 +168,27 @@ async function handleSubmit() {
   margin-top: 8px;
   flex-wrap: wrap;
 }
+.gb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--gb-border-radius, 8px);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+}
+.gb-btn-primary {
+  background: var(--gb-primary, #4a6cf7);
+  color: #fff;
+}
+.gb-btn-primary:active { background: var(--gb-primary-hover, #3b5de7); }
+.gb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .gb-secret-toggle {
   display: inline-flex;
   align-items: center;
@@ -173,10 +197,15 @@ async function handleSubmit() {
   color: var(--gb-text-secondary, #666);
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 .gb-secret-toggle input[type="checkbox"] {
   margin: 0;
   cursor: pointer;
+  width: 18px;
+  height: 18px;
 }
 .gb-hint {
   margin-left: auto;
@@ -205,5 +234,10 @@ async function handleSubmit() {
     margin-left: 0;
     width: 100%;
   }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-btn-primary:hover { background: var(--gb-primary-hover, #3b5de7); }
 }
 </style>

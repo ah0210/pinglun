@@ -223,14 +223,16 @@ onMounted(async () => {
   cursor: pointer;
   transition: all 0.2s;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .gb-btn-primary { background: var(--gb-primary); color: #fff; }
-.gb-btn-primary:hover { background: var(--gb-primary-hover); }
+.gb-btn-primary:active { background: var(--gb-primary-hover); }
 .gb-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .gb-btn-outline { background: transparent; color: var(--gb-primary); border: 1px solid var(--gb-primary); }
-.gb-btn-outline:hover { background: var(--gb-bg-secondary); }
+.gb-btn-outline:active { background: var(--gb-bg-secondary); }
 .gb-btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
-.gb-btn-sm { padding: 5px 12px; font-size: 13px; }
+.gb-btn-sm { padding: 5px 12px; font-size: 13px; min-height: 44px; }
 
 /* 未登录提示 */
 .gb-auth-prompt {
@@ -353,10 +355,15 @@ onMounted(async () => {
   color: var(--gb-text-secondary);
   font-size: 12px;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 4px 8px;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
-.gb-btn-reply:hover {
+.gb-btn-reply:active {
   color: var(--gb-primary);
 }
 
@@ -396,8 +403,11 @@ onMounted(async () => {
   cursor: pointer;
   font-size: 13px;
   font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
-.gb-page-btn:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
+.gb-page-btn:active { border-color: var(--gb-primary); color: var(--gb-primary); }
 .gb-page-btn.active { background: var(--gb-primary); color: #fff; border-color: var(--gb-primary); }
 .gb-page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -469,5 +479,13 @@ onMounted(async () => {
     padding: 5px 8px;
     font-size: 12px;
   }
+}
+
+/* 桌面端 hover 效果（移动端不应用，避免双击问题） */
+@media (hover: hover) {
+  .gb-btn-primary:hover { background: var(--gb-primary-hover); }
+  .gb-btn-outline:hover { background: var(--gb-bg-secondary); }
+  .gb-btn-reply:hover { color: var(--gb-primary); }
+  .gb-page-btn:hover { border-color: var(--gb-primary); color: var(--gb-primary); }
 }
 </style>
