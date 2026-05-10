@@ -98,6 +98,9 @@ function createGuestBoardAPI(): GuestBoardAPI {
 
       const el = document.createElement('gb-auth-bar') as any;
       el.apiBase = apiBase;
+      // 同步主题
+      const theme = existingWidget?.theme || 'auto';
+      el.theme = theme;
       if (options?.showEmail !== undefined) el.showEmail = options.showEmail;
       if (options?.showVerifiedStatus !== undefined) el.showVerifiedStatus = options.showVerifiedStatus;
       if (options?.avatarSize !== undefined) el.avatarSize = options.avatarSize;

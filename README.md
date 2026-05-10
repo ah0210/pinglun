@@ -358,7 +358,78 @@ cf-guestbook/
 
 ```html
 <!-- 在导航栏中放置认证栏 -->
-<gb-auth-bar api-base="https://your-domain.com/api/v1"></gb-auth-bar>
+<gb-auth-bar api-base="https://your-domain.com/api/v1" theme="auto"></gb-auth-bar>
+```
+
+### 自定义主题样式
+
+留言板和认证栏均使用 CSS 变量控制样式，变量从宿主页面穿透 Shadow DOM 生效。在宿主页面中覆盖 `--guestbook-*` 变量即可自定义主题：
+
+```css
+/* 全局设置，所有留言板组件继承 */
+:root {
+  --guestbook-primary: #e74c3c;
+  --guestbook-primary-hover: #d4402e;
+  --guestbook-font-family: "LXGW WenKai", sans-serif;
+  --guestbook-border-radius: 4px;
+}
+
+/* 按组件单独设置 */
+guestbook-widget {
+  --guestbook-primary: #e74c3c;
+}
+gb-auth-bar {
+  --guestbook-primary: #3498db;
+}
+
+/* 直接在 HTML 属性中 */
+<guestbook-widget
+  style="--guestbook-primary: #e74c3c"
+  ...
+/>
+```
+
+#### 完整 CSS 变量清单
+
+| 变量名 | 默认值 | 暗色默认值 | 说明 |
+|--------|--------|-----------|------|
+| `--guestbook-primary` | `#4a6cf7` | — | 主色调（按钮、链接、高亮） |
+| `--guestbook-primary-hover` | `#3b5de7` | — | 主色调 hover 状态 |
+| `--guestbook-bg` | `#ffffff` | `#1a1a2e` | 背景色 |
+| `--guestbook-bg-secondary` | `#f7f8fa` | `#16213e` | 次要背景色（输入框背景、提示区） |
+| `--guestbook-text` | `#333333` | `#e0e0e0` | 主文字色 |
+| `--guestbook-text-secondary` | `#666666` | `#a0a0a0` | 次要文字色（时间、提示） |
+| `--guestbook-border` | `#e0e0e0` | `#2d2d44` | 边框色 |
+| `--guestbook-border-radius` | `8px` | — | 圆角大小 |
+| `--guestbook-shadow` | `0 2px 8px rgba(0,0,0,0.08)` | `0 2px 8px rgba(0,0,0,0.3)` | 阴影 |
+| `--guestbook-font-size` | `14px` | — | 字号 |
+| `--guestbook-font-family` | `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif` | — | 字体族 |
+
+> 暗色默认值在 `theme="dark"` 时自动生效，也可单独覆盖。
+
+### 暗色模式同步
+
+```html
+<!-- 方式一：跟随系统偏好（默认行为） -->
+<guestbook-widget theme="auto" ... />
+<gb-auth-bar theme="auto" ... />
+
+<!-- 方式二：强制指定 -->
+<guestbook-widget theme="dark" ... />
+
+<!-- 方式三：与 Hugo 主题 JS 联动 -->
+<script>
+function syncTheme() {
+  const isDark = document.documentElement.classList.contains('dark');
+  document.querySelectorAll('guestbook-widget, gb-auth-bar').forEach(el => {
+    el.setAttribute('theme', isDark ? 'dark' : 'light');
+  });
+}
+// 监听宿主主题切换
+new MutationObserver(syncTheme)
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+syncTheme();
+</script>
 ```
 
 ### 全局 JS API
