@@ -91,6 +91,22 @@
           </button>
         </form>
 
+        <!-- 修改显示名称 -->
+        <form v-if="mode === 'change-display-name'" @submit.prevent="handleChangeDisplayName">
+          <h3 class="gb-modal-title">修改显示名称</h3>
+          <p class="gb-modal-desc">显示名称将替代用户名在留言中展示。</p>
+          <div class="gb-field">
+            <label class="gb-label" :for="`${instanceId}-display-name`">显示名称</label>
+            <input v-model="form.displayName" class="gb-input" type="text" required maxlength="30" :id="`${instanceId}-display-name`" />
+            <div class="gb-hint">2-30 个字符，支持中英文、数字、下划线和连字符</div>
+          </div>
+          <div v-if="error" class="gb-error">{{ error }}</div>
+          <div v-if="successMsg" class="gb-success">{{ successMsg }}</div>
+          <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
+            {{ auth.loading.value ? '修改中...' : '修改显示名称' }}
+          </button>
+        </form>
+
         <!-- 修改密码 -->
         <form v-if="mode === 'change-password'" @submit.prevent="handleChangePassword">
           <h3 class="gb-modal-title">修改密码</h3>
@@ -140,7 +156,7 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 
-export type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-password' | 'change-email';
+export type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
 const props = defineProps<{
   siteKey: string;
@@ -167,6 +183,7 @@ const form = ref({
   currentPassword: '',
   newPassword: '',
   newEmail: '',
+  displayName: '',
 });
 
 const instanceId = Math.random().toString(36).slice(2, 8);
@@ -177,6 +194,10 @@ function open(newMode: AuthModalMode, token?: string) {
   successMsg.value = '';
   resetForm();
   if (token) resetToken.value = token;
+  // 预填充当前显示名称
+  if (newMode === 'change-display-name' && auth.user.value) {
+    form.value.displayName = auth.user.value.displayName || '';
+  }
   visible.value = true;
 }
 
@@ -204,6 +225,7 @@ function resetForm() {
     currentPassword: '',
     newPassword: '',
     newEmail: '',
+    displayName: '',
   };
 }
 
@@ -376,6 +398,27 @@ async function handleChangeEmail() {
   if (result.success) {
     successMsg.value = '邮箱已修改，请验证新邮箱';
     setTimeout(() => close(), 2000);
+  } else {
+    error.value = result.error?.message || '修改失败';
+  }
+}
+
+async function handleChangeDisplayName() {
+  error.value = '';
+  successMsg.value = '';
+  const name = form.value.displayName.trim();
+  if (!name || name.length < 2) {
+    error.value = '显示名称至少 2 个字符';
+    return;
+  }
+  if (name.length > 30) {
+    error.value = '显示名称不能超过 30 个字符';
+    return;
+  }
+  const result = await auth.updateProfile({ displayName: name });
+  if (result.success) {
+    successMsg.value = '显示名称修改成功';
+    setTimeout(() => close(), 1500);
   } else {
     error.value = result.error?.message || '修改失败';
   }
@@ -558,4 +601,25 @@ defineExpose({ open, close });
   font-family: inherit;
 }
 .gb-link-btn:hover { text-decoration: underline; }
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .gb-modal-overlay {
+    padding: 8px;
+    align-items: flex-end;
+  }
+  .gb-modal {
+    padding: 20px 16px;
+    max-height: 95vh;
+    border-radius: var(--gb-border-radius, 8px) var(--gb-border-radius, 8px) 0 0;
+  }
+  .gb-modal-title {
+    font-size: 16px;
+  }
+  .gb-modal-links {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+}
 </style>

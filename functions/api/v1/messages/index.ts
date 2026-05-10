@@ -85,7 +85,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     }
 
     // 构建被回复留言摘要
-    let replyToMessage: { id: number; username: string; content: string; isSecret: boolean } | undefined;
+    let replyToMessage: { id: number; username: string; displayName: string; content: string; isSecret: boolean } | undefined;
     if (m.reply_to && m.reply_id) {
       let replyContent = m.reply_content || '';
       // 被回复留言的秘密内容也需按权限隐藏
@@ -100,7 +100,8 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       }
       replyToMessage = {
         id: m.reply_id,
-        username: m.reply_display_name || m.reply_username || '',
+        username: m.reply_username || '',
+        displayName: m.reply_display_name || m.reply_username || '',
         content: replyContent,
         isSecret: m.reply_is_secret === 1,
       };
@@ -224,10 +225,12 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, body.replyTo || null, status).run();
 
   // 返回完整消息对象，便于前端乐观更新
+  // 查询用户的 display_name
+  const dbUser = await env.DB.prepare('SELECT display_name FROM users WHERE id = ?').bind(user.userId).first<{ display_name: string | null }>();
   const publicUser: PublicUser = {
     id: user.userId,
     username: user.username,
-    displayName: user.username,
+    displayName: dbUser?.display_name || user.username,
     avatar: '',
     role: user.role,
     bio: '',

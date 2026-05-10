@@ -7,7 +7,7 @@ import type { PublicUser } from '../shared/types';
 import type { WidgetOptions } from '../shared/types';
 
 // AuthModalMode 类型定义（与 AuthModal.vue 中保持一致）
-type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-password' | 'change-email';
+type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
 // 注册 Web Components
 const GuestbookWidgetElement = defineCustomElement(GuestBoard);

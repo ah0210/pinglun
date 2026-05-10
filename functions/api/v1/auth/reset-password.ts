@@ -2,6 +2,7 @@
 import { apiHandler } from '../../../../lib/middleware';
 import { hashPassword } from '../../../../lib/crypto';
 import { hashToken } from '../../../../lib/jwt';
+import { validatePasswordStrength } from '../../../../lib/sanitize';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
 import type { Env } from '../../../../lib/types';
 
@@ -22,14 +23,9 @@ export const onRequestPost = apiHandler(async (request, env) => {
   }
 
   // 验证密码强度
-  if (body.newPassword.length < 8) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码至少 8 个字符', 400);
-  }
-  if (!/[a-zA-Z]/.test(body.newPassword)) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码必须包含至少一个字母', 400);
-  }
-  if (!/[0-9]/.test(body.newPassword)) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '密码必须包含至少一个数字', 400);
+  const passwordError = validatePasswordStrength(body.newPassword);
+  if (passwordError) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, passwordError, 400);
   }
 
   // 查找 token 记录

@@ -55,6 +55,11 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     'UPDATE users SET email = ?, email_verified = 0, avatar = ?, updated_at = datetime("now") WHERE id = ?'
   ).bind(newEmail, newAvatar, user!.userId).run();
 
+  // 清除旧的未使用验证记录，避免混淆
+  await env.DB.prepare(
+    'DELETE FROM email_verifications WHERE user_id = ? AND verified = 0'
+  ).bind(user!.userId).run();
+
   // 生成验证 token
   const verifyToken = generateToken();
   const verifyTokenHash = await hashToken(verifyToken);

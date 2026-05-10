@@ -10,6 +10,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 100);
   const action = url.searchParams.get('action') || '';
   const adminId = url.searchParams.get('admin_id') || '';
+  const search = url.searchParams.get('search') || '';
 
   let whereClause = 'WHERE 1=1';
   const binds: unknown[] = [];
@@ -21,6 +22,10 @@ export const onRequestGet = apiHandler(async (request, env) => {
   if (adminId) {
     whereClause += ' AND al.admin_id = ?';
     binds.push(parseInt(adminId, 10));
+  }
+  if (search) {
+    whereClause += ' AND (al.detail LIKE ? OR u.username LIKE ?)';
+    binds.push(`%${search}%`, `%${search}%`);
   }
 
   const countResult = await env.DB.prepare(

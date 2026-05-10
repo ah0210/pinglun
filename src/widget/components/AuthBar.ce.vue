@@ -11,6 +11,7 @@
     <UserDropdown
       v-if="auth.user.value"
       :user="auth.user.value"
+      @change-display-name="openAuth('change-display-name')"
       @change-password="openAuth('change-password')"
       @change-email="openAuth('change-email')"
       @logout="auth.logout()"
@@ -31,7 +32,7 @@ import { useAuth, initAuth } from '../composables/useAuth';
 import UserDropdown from './UserDropdown.vue';
 import AuthModal from './AuthModal.vue';
 
-type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-password' | 'change-email';
+type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
 const props = defineProps<{
   apiBase: string;

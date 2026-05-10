@@ -7,6 +7,7 @@
       <div v-if="auth.user.value" class="gb-user-bar">
         <UserDropdown
           :user="auth.user.value"
+          @change-display-name="openAuthModal('change-display-name')"
           @change-password="openAuthModal('change-password')"
           @change-email="openAuthModal('change-email')"
           @logout="onLogout"
@@ -84,7 +85,7 @@ import { useTheme } from '../composables/useTheme';
 import UserDropdown from './UserDropdown.vue';
 import AuthModal from './AuthModal.vue';
 
-type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-password' | 'change-email';
+type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 import MessageForm from './MessageForm.vue';
 import MessageList from './MessageList.vue';
 import Pagination from './Pagination.vue';
@@ -409,4 +410,64 @@ onMounted(async () => {
 /* 状态标签 */
 .gb-status-pending { color: var(--gb-warning); font-size: 12px; }
 .gb-status-approved { color: var(--gb-success); font-size: 12px; }
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .gb-container { padding: 12px; }
+
+  .gb-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .gb-title {
+    font-size: 18px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .gb-auth-prompt {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+  .gb-auth-hint { font-size: 13px; }
+
+  .gb-verify-actions {
+    flex-wrap: wrap;
+  }
+
+  .gb-message-header {
+    gap: 8px;
+  }
+  .gb-message-meta {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .gb-username {
+    display: inline-block;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .gb-time {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+  }
+
+  .gb-inline-reply-actions {
+    flex-wrap: wrap;
+  }
+
+  .gb-pagination {
+    flex-wrap: wrap;
+  }
+  .gb-page-btn {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+}
 </style>

@@ -16,3 +16,17 @@ export function sanitizeUsername(str: string): string {
 export function sanitizeEmail(str: string): string {
   return str.trim().toLowerCase().slice(0, 254);
 }
+
+/** 密码强度校验：至少 8 位，包含字母和数字 */
+export function validatePasswordStrength(password: string): string | null {
+  if (password.length < 8) {
+    return '密码至少 8 个字符';
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return '密码必须包含至少一个字母';
+  }
+  if (!/[0-9]/.test(password)) {
+    return '密码必须包含至少一个数字';
+  }
+  return null;
+}

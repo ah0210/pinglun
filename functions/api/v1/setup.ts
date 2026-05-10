@@ -2,23 +2,9 @@
 import { apiHandler } from '../../../lib/middleware';
 import { hashPassword } from '../../../lib/crypto';
 import { getAvatarUrl } from '../../../lib/avatar';
-import { sanitizeUsername, sanitizeEmail } from '../../../lib/sanitize';
+import { sanitizeUsername, sanitizeEmail, validatePasswordStrength } from '../../../lib/sanitize';
 import { ErrorCode, errorResponse, successResponse } from '../../../lib/response';
 import type { Env } from '../../../lib/types';
-
-/** 密码强度校验：至少 8 位，包含字母和数字 */
-function validatePasswordStrength(password: string): string | null {
-  if (password.length < 8) {
-    return '密码至少 8 个字符';
-  }
-  if (!/[a-zA-Z]/.test(password)) {
-    return '密码必须包含至少一个字母';
-  }
-  if (!/[0-9]/.test(password)) {
-    return '密码必须包含至少一个数字';
-  }
-  return null;
-}
 
 export const onRequestPost = apiHandler(async (request, env) => {
   // 检查是否已完成初始化（不可逆标记，记录在 _migrations 中）

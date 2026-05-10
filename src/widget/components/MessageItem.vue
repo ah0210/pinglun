@@ -14,7 +14,7 @@
 
     <!-- 被回复留言引用块 -->
     <div v-if="message.replyToMessage" class="gb-reply-quote">
-      <span class="gb-reply-quote-user">@{{ message.replyToMessage.username }}</span>
+      <span class="gb-reply-quote-user">@{{ message.replyToMessage.displayName || message.replyToMessage.username }}</span>
       <span class="gb-reply-quote-content">
         {{ message.replyToMessage.isSecret && isReplySecretHidden ? '🔒 这是一条秘密留言' : message.replyToMessage.content }}
       </span>

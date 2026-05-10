@@ -1,6 +1,7 @@
 // functions/api/v1/auth/change-password.ts — 修改密码
 import { apiHandler } from '../../../../lib/middleware';
 import { verifyPassword, hashPassword } from '../../../../lib/crypto';
+import { validatePasswordStrength } from '../../../../lib/sanitize';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
 import type { Env, DbUser, JwtPayload } from '../../../../lib/types';
 
@@ -11,8 +12,9 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写当前密码和新密码', 400);
   }
 
-  if (body.newPassword.length < 6) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '新密码至少 6 个字符', 400);
+  const passwordError = validatePasswordStrength(body.newPassword);
+  if (passwordError) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, passwordError, 400);
   }
 
   // 获取当前密码哈希

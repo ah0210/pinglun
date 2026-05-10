@@ -192,4 +192,18 @@ async function handleSubmit() {
   color: var(--gb-danger, #e74c3c);
   font-size: 13px;
 }
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .gb-textarea {
+    min-height: 60px;
+  }
+  .gb-actions {
+    gap: 8px;
+  }
+  .gb-hint {
+    margin-left: 0;
+    width: 100%;
+  }
+}
 </style>

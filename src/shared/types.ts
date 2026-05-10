@@ -14,6 +14,7 @@ export interface PublicUser {
 export interface ReplyToMessage {
   id: number;
   username: string;
+  displayName: string;
   content: string;
   isSecret: boolean;
 }

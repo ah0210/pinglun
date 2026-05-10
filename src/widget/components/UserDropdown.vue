@@ -18,6 +18,9 @@
         </div>
       </div>
       <div class="gb-dropdown-divider"></div>
+      <button class="gb-dropdown-item" @click="handleChangeDisplayName">
+        <span class="gb-dropdown-icon">👤</span> 修改显示名称
+      </button>
       <button class="gb-dropdown-item" @click="handleChangePassword">
         <span class="gb-dropdown-icon">🔒</span> 修改密码
       </button>
@@ -42,6 +45,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+  (e: 'change-display-name'): void;
   (e: 'change-password'): void;
   (e: 'change-email'): void;
   (e: 'logout'): void;
@@ -57,6 +61,11 @@ function toggle() {
 
 function close() {
   isOpen.value = false;
+}
+
+function handleChangeDisplayName() {
+  close();
+  emit('change-display-name');
 }
 
 function handleChangePassword() {
@@ -224,5 +233,16 @@ onUnmounted(() => {
   font-size: 14px;
   width: 18px;
   text-align: center;
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .gb-dropdown-menu {
+    right: -8px;
+    min-width: 180px;
+  }
+  .gb-dropdown-name {
+    display: none;
+  }
 }
 </style>

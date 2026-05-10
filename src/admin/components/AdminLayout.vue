@@ -27,7 +27,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, h } from 'vue';
+import { ref, computed, h, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { NLayout, NLayoutSider, NLayoutHeader, NLayoutContent, NMenu, NButton, NSpace, NMessageProvider, NDialogProvider } from 'naive-ui';
 import { useAuthStore } from '../stores/auth';
@@ -36,6 +36,18 @@ const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
 const collapsed = ref(false);
+
+// 移动端默认折叠侧边栏
+function checkMobile() {
+  collapsed.value = window.innerWidth <= 768;
+}
+onMounted(() => {
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
+});
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile);
+});
 
 const currentRoute = computed(() => route.name as string);
 
