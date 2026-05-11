@@ -1,4 +1,4 @@
-# 自游人留言板（CF-Guestbook）v1.0.0
+# 自游人留言板（you-guestbook）v1.0.0
 
 基于 **Cloudflare Pages + D1** 的留言板系统，可嵌入 Hugo/FixIt 博客。
 
@@ -38,8 +38,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/你的用户名/cf-guestbook.git
-cd cf-guestbook
+git clone https://github.com/ah0210/you-guestbook.git
+cd you-guestbook
 
 # 安装依赖
 pnpm install
@@ -55,7 +55,7 @@ cp .dev.vars.example .dev.vars
 
 ```toml
 database_id = "你的D1数据库ID"
-ALLOWED_ORIGINS = "https://你的博客域名,https://cf-guestbook.pages.dev"
+ALLOWED_ORIGINS = "https://你的博客域名,https://you-guestbook.pages.dev"
 EMAIL_DOMAIN = "你的Resend验证域名"
 ```
 
@@ -223,9 +223,9 @@ git add -A && git commit -m "v1.0.0 release" && git push origin main
 
 | 变量名 | 示例值 | 说明 |
 |--------|--------|------|
-| `PUBLIC_URL` | `https://cf-guestbook.pages.dev` | 站点公开 URL |
+| `PUBLIC_URL` | `https://you-guestbook.pages.dev` | 站点公开 URL |
 | `SITE_NAME` | `自游人留言板` | 站点名称 |
-| `ALLOWED_ORIGINS` | `https://www.17you.com,https://cf-guestbook.pages.dev` | CORS 允许来源 |
+| `ALLOWED_ORIGINS` | `https://www.17you.com,https://you-guestbook.pages.dev` | CORS 允许来源 |
 | `EMAIL_DOMAIN` | `17you.com` | Resend 发件域名 |
 | `EMAIL_FROM_NAME` | `自游人` | 发件人名称 |
 
@@ -268,7 +268,7 @@ npx wrangler d1 execute guestbook --remote --file=sql/006_login_attempts.sql
 #### 步骤 8：创建管理员
 
 ```bash
-curl -X POST https://cf-guestbook.pages.dev/api/v1/setup \
+curl -X POST https://you-guestbook.pages.dev/api/v1/setup \
   -H "Content-Type: application/json" \
   -d '{"username":"your_admin","email":"admin@yourdomain.com","password":"YourSecurePassword"}'
 ```
@@ -290,10 +290,10 @@ pnpm run build
 #### 步骤 2：首次部署
 
 ```bash
-wrangler pages deploy dist --project-name=cf-guestbook
+wrangler pages deploy dist --project-name=you-guestbook
 ```
 
-首次部署会自动创建 Pages 项目，记住输出的 URL（如 `https://cf-guestbook.pages.dev`）。
+首次部署会自动创建 Pages 项目，记住输出的 URL（如 `https://you-guestbook.pages.dev`）。
 
 #### 步骤 3：绑定 D1 数据库
 
@@ -311,9 +311,9 @@ wrangler pages deploy dist --project-name=cf-guestbook
 openssl rand -hex 24
 
 # 设置密钥
-wrangler pages secret put JWT_SECRET --project-name=cf-guestbook
-wrangler pages secret put RESEND_API_KEY --project-name=cf-guestbook
-wrangler pages secret put TURNSTILE_SECRET_KEY --project-name=cf-guestbook
+wrangler pages secret put JWT_SECRET --project-name=you-guestbook
+wrangler pages secret put RESEND_API_KEY --project-name=you-guestbook
+wrangler pages secret put TURNSTILE_SECRET_KEY --project-name=you-guestbook
 ```
 
 #### 步骤 5：初始化数据库 + 创建管理员
@@ -324,7 +324,7 @@ pnpm run db:init:remote
 pnpm run db:seed:remote
 
 # 创建管理员
-curl -X POST https://cf-guestbook.pages.dev/api/v1/setup \
+curl -X POST https://you-guestbook.pages.dev/api/v1/setup \
   -H "Content-Type: application/json" \
   -d '{"username":"your_admin","email":"admin@yourdomain.com","password":"YourSecurePassword"}'
 ```
@@ -334,7 +334,7 @@ curl -X POST https://cf-guestbook.pages.dev/api/v1/setup \
 ```bash
 git pull  # 拉取最新代码
 pnpm run build
-wrangler pages deploy dist --project-name=cf-guestbook
+wrangler pages deploy dist --project-name=you-guestbook
 ```
 
 ---
@@ -345,32 +345,32 @@ wrangler pages deploy dist --project-name=cf-guestbook
 
 ```bash
 # 1. 检查站点可访问
-curl -I https://cf-guestbook.pages.dev/api/v1/config
+curl -I https://you-guestbook.pages.dev/api/v1/config
 # 期望：200 OK
 
 # 2. 检查缓存头（公开配置可缓存）
-curl -I https://cf-guestbook.pages.dev/api/v1/config
+curl -I https://you-guestbook.pages.dev/api/v1/config
 # 期望：Cache-Control 包含 public
 
 # 3. 检查留言列表缓存头（防缓存投毒）
-curl -I https://cf-guestbook.pages.dev/api/v1/messages
+curl -I https://you-guestbook.pages.dev/api/v1/messages
 # 期望：Cache-Control: no-store
 
 # 4. 测试注册
-curl -X POST https://cf-guestbook.pages.dev/api/v1/auth/register \
+curl -X POST https://you-guestbook.pages.dev/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","email":"test@yourdomain.com","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
 
 # 5. 测试登录
-curl -X POST https://cf-guestbook.pages.dev/api/v1/auth/login \
+curl -X POST https://you-guestbook.pages.dev/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"testuser","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
 
 # 6. 访问管理后台
-# 浏览器打开 https://cf-guestbook.pages.dev/admin/
+# 浏览器打开 https://you-guestbook.pages.dev/admin/
 
 # 7. 访问 Widget 测试页
-# 浏览器打开 https://cf-guestbook.pages.dev/test-widget.html
+# 浏览器打开 https://you-guestbook.pages.dev/test-widget.html
 
 # 8. 验证 D1 绑定
 npx wrangler d1 execute guestbook --remote --command "SELECT name FROM _migrations"
@@ -385,7 +385,7 @@ npx wrangler d1 execute guestbook --remote --command "SELECT COUNT(*) as count F
 ### 自定义域名（可选）
 
 1. 在 Cloudflare Dashboard → Pages 项目 → Custom domains 添加域名
-2. 如域名不在 Cloudflare，需添加 CNAME 记录指向 `cf-guestbook.pages.dev`
+2. 如域名不在 Cloudflare，需添加 CNAME 记录指向 `you-guestbook.pages.dev`
 3. 更新 `wrangler.toml` 中的 `PUBLIC_URL` 和 `ALLOWED_ORIGINS`
 4. 更新 Resend 中的发件域名 DNS 记录
 
@@ -472,7 +472,7 @@ hugo-templates/
 ```toml
 [params.guestbook]
   enable = true
-  apiBase = "https://cf-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
+  apiBase = "https://you-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
   siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
   theme = "auto"                                         # "light" | "dark" | "auto"
   maxLength = 500                                        # 留言最大字数
@@ -699,7 +699,7 @@ GuestBoard.unmountAuthBar();
 ## 项目结构
 
 ```
-cf-guestbook/
+you-guestbook/
 ├── functions/api/v1/    → 后端 API（Pages Functions）
 │   └── auth/            → 认证相关（注册/登录/找回密码/重置密码/修改邮箱等）
 ├── lib/                  → 共享工具库

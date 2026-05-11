@@ -79,6 +79,11 @@ export const onRequestPost = apiHandler(async (request, env) => {
     'DELETE FROM login_attempts WHERE created_at < ?'
   ).bind(cutoff).run();
 
+  // 顺手清理过期和已吊销超过 30 天的 Refresh Token
+  await env.DB.prepare(
+    "DELETE FROM refresh_tokens WHERE (expires_at < datetime('now')) OR (revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days'))"
+  ).run();
+
   // 更新最后登录时间
   await env.DB.prepare('UPDATE users SET last_login_at = datetime("now") WHERE id = ?').bind(user.id).run();
 

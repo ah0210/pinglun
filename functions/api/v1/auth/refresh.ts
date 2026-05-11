@@ -60,6 +60,11 @@ export const onRequestPost = apiHandler(async (request, env) => {
     `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
   ).bind(storedToken.user_id, newTokenHash, expiresAt).run();
 
+  // 顺手清理过期和已吊销超过 30 天的 Token
+  await env.DB.prepare(
+    "DELETE FROM refresh_tokens WHERE (expires_at < datetime('now')) OR (revoked_at IS NOT NULL AND revoked_at < datetime('now', '-30 days'))"
+  ).run();
+
   // 生成新 Access Token
   const accessToken = await signAccessToken({
     userId: storedToken.user_id,

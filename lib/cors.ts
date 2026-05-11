@@ -3,7 +3,7 @@
 import type { Env } from './types';
 
 const DEFAULT_ALLOWED_ORIGINS = [
-  'https://cf-guestbook.pages.dev',
+  'https://you-guestbook.pages.dev',
 ];
 
 /** 响应中需要清除的 CORS 头（防止 wrangler dev server 自动添加的通配符头冲突） */

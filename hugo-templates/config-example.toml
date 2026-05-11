@@ -3,7 +3,7 @@
 
 [params.guestbook]
   enable = true
-  apiBase = "https://cf-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
+  apiBase = "https://you-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
   siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
   theme = "auto"                                         # "light" | "dark" | "auto"
   maxLength = 500                                        # 留言最大字数
