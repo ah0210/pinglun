@@ -443,9 +443,8 @@ function renderTurnstile(action: string): Promise<string> {
           resolve('');
         },
         size: 'compact',
-        execution: 'execute',
+        execution: 'render',
       });
-      turnstile.execute(turnstileWidgetId);
     } catch (e) {
       clearTimeout(timeout);
       console.warn('[Guestbook] Turnstile render failed:', e);

@@ -107,9 +107,8 @@ async function handleSubmit() {
               resolve('');
             },
             size: 'compact',
-            execution: 'execute',
+            execution: 'render',
           });
-          (window as any).turnstile.execute(widgetId);
         } catch {
           clearTimeout(timeout);
           cleanup();
