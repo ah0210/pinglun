@@ -99,8 +99,8 @@ export const onRequestPost = apiHandler(async (request, env) => {
   // 发送验证邮件（异步，不阻塞响应）
   const verifyUrl = `${env.PUBLIC_URL}/api/v1/auth/verify-email?token=${verifyToken}`;
   const html = buildVerifyEmailHtml(username, verifyUrl);
-  // 不 await — 邮件发送失败不影响注册
-  sendEmail({ to: email, subject: '请验证您的邮箱', html }, env).catch(() => {});
+  // 不 await — 邮件发送失败不影响注册，但使用 waitUntil 确保 Worker 不提前销毁
+  ctx.waitUntil(sendEmail({ to: email, subject: '请验证您的邮箱', html }, env).catch(() => {}));
 
   // 获取完整用户信息
   const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(userId).first<DbUser>();

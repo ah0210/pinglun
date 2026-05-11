@@ -1,7 +1,6 @@
 // functions/api/v1/messages/[id].ts — 单条留言详情
 import { apiHandler } from '../../../../lib/middleware';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
-import { getAvatarUrl } from '../../../../lib/avatar';
 import { noCacheHeaders } from '../../../../lib/cache-headers';
 import type { Env, DbMessage, DbUser, JwtPayload } from '../../../../lib/types';
 
@@ -9,12 +8,13 @@ import type { Env, DbMessage, DbUser, JwtPayload } from '../../../../lib/types';
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const id = ctx.params.id;
 
+  // 不获取 u.email，避免邮箱数据泄露风险；avatar 在注册时已生成完整 URL
   const message = await env.DB.prepare(
-    `SELECT m.*, u.username, u.display_name, u.avatar, u.email, u.role as user_role, u.bio
+    `SELECT m.*, u.username, u.display_name, u.avatar, u.role as user_role, u.bio
      FROM messages m
      JOIN users u ON m.user_id = u.id
      WHERE m.id = ?`
-  ).bind(id).first<DbMessage & { username: string; display_name: string; avatar: string; email: string; user_role: string; bio: string }>();
+  ).bind(id).first<DbMessage & { username: string; display_name: string; avatar: string; user_role: string; bio: string }>();
 
   if (!message) {
     return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
@@ -30,8 +30,8 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     }
   }
 
-  // 非审核通过的秘密留言只有管理员可见
-  if (message.status !== 'approved' && user?.role !== 'admin') {
+  // 非审核通过的留言：仅管理员和留言作者可见
+  if (message.status !== 'approved' && user?.role !== 'admin' && message.user_id !== user?.userId) {
     return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
   }
 
@@ -53,7 +53,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
       id: message.user_id,
       username: message.username,
       displayName: message.display_name || message.username,
-      avatar: message.avatar || getAvatarUrl(message.email),
+      avatar: message.avatar,  // avatar 在注册时已生成完整 URL，无需 email
       role: message.user_role,
       bio: message.bio,
     },

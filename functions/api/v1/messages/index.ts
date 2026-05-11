@@ -2,17 +2,16 @@
 import { apiHandler } from '../../../../lib/middleware';
 import { verifyTurnstile, isTestKey } from '../../../../lib/turnstile';
 import { escapeHtml } from '../../../../lib/sanitize';
-import { cacheHeaders, noCacheHeaders } from '../../../../lib/cache-headers';
-import { ErrorCode, errorResponse, successResponse, paginatedResponse } from '../../../../lib/response';
+import { noCacheHeaders } from '../../../../lib/cache-headers';
+import { ErrorCode, errorResponse, successResponse, cursorPaginatedResponse } from '../../../../lib/response';
 import { toPublicUser } from '../../../../lib/types';
-import { getAvatarUrl } from '../../../../lib/avatar';
 import type { DbMessage, PublicUser } from '../../../../lib/types';
 
-// GET — 留言列表（公开，CDN 缓存 60s，秘密留言按权限过滤）
+// GET — 留言列表（游标分页，无 COUNT，秘密留言按权限过滤）
 export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const url = new URL(request.url);
   const pageId = url.searchParams.get('pageId') || '';
-  const page = parseInt(url.searchParams.get('page') || '1', 10);
+  const cursor = url.searchParams.get('cursor') || '';  // 上一页最后一条的 created_at
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20', 10), 50);
 
   // 构建查询条件
@@ -20,32 +19,28 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const binds: unknown[] = [pageId];
 
   if (user?.role === 'admin') {
-    // 管理员：看所有状态的留言
     whereClause = 'WHERE m.page_id = ?';
   } else if (user) {
-    // 登录用户：approved 留言 + 自己的 pending 留言
     whereClause = 'WHERE m.page_id = ? AND (m.status = ? OR (m.status = ? AND m.user_id = ?))';
     binds.push('approved', 'pending', user.userId);
   } else {
-    // 未登录：只看 approved
     whereClause = 'WHERE m.page_id = ? AND m.status = ?';
     binds.push('approved');
   }
 
-  // 未登录：也能看到秘密留言条目（内容会被替换为占位文字）
-  // 普通用户：公开留言 + 自己的秘密留言可见内容，他人的秘密留言内容隐藏
-  // 管理员：看所有留言原内容
+  // 游标条件：如果传了 cursor（上一页最后一条的 created_at），追加 WHERE
+  if (cursor) {
+    whereClause += ' AND m.created_at < ?';
+    binds.push(cursor);
+  }
 
-  // 计算总数
-  const countResult = await env.DB.prepare(
-    `SELECT COUNT(*) as total FROM messages m ${whereClause}`
-  ).bind(...binds).first<{ total: number }>();
-
-  const total = countResult?.total || 0;
+  // 多取 1 条来判断是否有下一页（hasMore）
+  const fetchLimit = limit + 1;
 
   // 获取留言列表（LEFT JOIN 被回复留言的信息）
+  // 注意：不获取 u.email，避免邮箱数据泄露风险；avatar 字段在注册时已生成完整 URL
   const messages = await env.DB.prepare(
-    `SELECT m.*, u.username, u.display_name, u.avatar, u.email, u.role as user_role, u.bio,
+    `SELECT m.*, u.username, u.display_name, u.avatar, u.role as user_role, u.bio,
             r.id as reply_id, r.content as reply_content, r.is_secret as reply_is_secret,
             r.user_id as reply_user_id,
             ru.username as reply_username, ru.display_name as reply_display_name
@@ -55,22 +50,30 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
      LEFT JOIN users ru ON r.user_id = ru.id
      ${whereClause}
      ORDER BY m.created_at DESC
-     LIMIT ? OFFSET ?`
-  ).bind(...binds, limit, (page - 1) * limit).all<DbMessage & {
-    username: string; display_name: string; avatar: string; email: string; user_role: string; bio: string;
+     LIMIT ?`
+  ).bind(...binds, fetchLimit).all<DbMessage & {
+    username: string; display_name: string; avatar: string; user_role: string; bio: string;
     reply_id: number | null; reply_content: string | null; reply_is_secret: number | null;
     reply_user_id: number | null; reply_username: string | null; reply_display_name: string | null;
   }>();
 
-  // 利用已获取的 total 避免重复查询
+  const allResults = messages.results || [];
+  const hasMore = allResults.length > limit;
+  // 截取实际需要的数量
+  const results = hasMore ? allResults.slice(0, limit) : allResults;
+
+  // 下一页游标：当前页最后一条的 created_at
+  const nextCursor = hasMore && results.length > 0
+    ? results[results.length - 1].created_at
+    : null;
 
   // 处理秘密留言内容
-  const items = (messages.results || []).map(m => {
+  const items = results.map(m => {
     const publicUser: ReturnType<typeof toPublicUser> = {
       id: m.user_id,
       username: m.username,
       displayName: m.display_name || m.username,
-      avatar: m.avatar || getAvatarUrl(m.email),
+      avatar: m.avatar,  // avatar 在注册时已生成完整 URL，无需 email
       role: m.user_role,
       bio: m.bio,
     };
@@ -121,8 +124,9 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     };
   });
 
-  const headers = { ...cacheHeaders(60), ...{ 'Content-Type': 'application/json' } };
-  return paginatedResponse(items, total, page, limit, headers);
+  // 留言列表包含用户角色相关数据（秘密留言/待审核留言），禁止 CDN 缓存
+  const headers = { ...noCacheHeaders(), ...{ 'Content-Type': 'application/json' } };
+  return cursorPaginatedResponse(items, limit, nextCursor, headers);
 }, { requireAuth: false });
 
 // POST — 提交留言（需登录 + 邮箱已验证，管理员豁免）
@@ -225,7 +229,6 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, body.replyTo || null, status).run();
 
   // 返回完整消息对象，便于前端乐观更新
-  // 查询用户的 display_name
   const dbUser = await env.DB.prepare('SELECT display_name FROM users WHERE id = ?').bind(user.userId).first<{ display_name: string | null }>();
   const publicUser: PublicUser = {
     id: user.userId,

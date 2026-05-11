@@ -60,12 +60,11 @@
       :require-captcha="config?.requireCaptcha !== false"
     />
 
-    <!-- 分页 -->
+    <!-- 加载更多 -->
     <Pagination
-      v-if="messages.totalPages.value > 1"
-      :current="messages.page.value"
-      :total="messages.totalPages.value"
-      @change="onPageChange"
+      :has-more="messages.hasMore.value"
+      :loading="messages.loading.value"
+      @load-more="onLoadMore"
     />
 
     <!-- 版权信息 -->
@@ -159,6 +158,10 @@ function maskEmail(email: string): string {
   if (!domain) return email;
   const masked = local.length > 1 ? local[0] + '***' : local;
   return `${masked}@${domain}`;
+}
+
+function onLoadMore() {
+  messages.loadMore(props.pageId);
 }
 
 onMounted(async () => {

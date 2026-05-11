@@ -4,8 +4,8 @@ export interface PublicUser {
   id: number;
   username: string;
   displayName: string;
-  email: string;
-  emailVerified: boolean;
+  email?: string;        // 仅在自身信息接口（/auth/me, /auth/login 等）中返回
+  emailVerified?: boolean;  // 仅在自身信息接口中返回
   avatar: string;
   role: string;
   bio?: string;
@@ -48,6 +48,14 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+/** 游标分页响应（无 COUNT，高性能） */
+export interface CursorPaginatedResponse<T> {
+  items: T[];
+  limit: number;
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 export interface ApiError {

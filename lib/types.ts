@@ -173,8 +173,6 @@ export function toPublicUser(u: DbUser): PublicUser {
     id: u.id,
     username: u.username,
     displayName: u.display_name || u.username,
-    email: u.email,
-    emailVerified: u.email_verified === 1,
     avatar: u.avatar,
     role: u.role,
     bio: u.bio,

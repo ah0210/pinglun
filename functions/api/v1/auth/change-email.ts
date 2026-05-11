@@ -68,10 +68,10 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     'INSERT INTO email_verifications (user_id, token, expires_at) VALUES (?, ?, ?)'
   ).bind(user!.userId, verifyTokenHash, verifyExpires).run();
 
-  // 发送验证邮件（异步）
+  // 发送验证邮件（异步，使用 waitUntil 确保 Worker 不提前销毁）
   const verifyUrl = `${env.PUBLIC_URL}/api/v1/auth/verify-email?token=${verifyToken}`;
   const html = buildVerifyEmailHtml(dbUser.username, verifyUrl);
-  sendEmail({ to: newEmail, subject: '请验证您的新邮箱', html }, env).catch(() => {});
+  ctx.waitUntil(sendEmail({ to: newEmail, subject: '请验证您的新邮箱', html }, env).catch(() => {}));
 
   // 获取更新后的用户信息
   const updatedUser = await env.DB.prepare(

@@ -21,10 +21,12 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 export async function hashPassword(password: string): Promise<string> {
+  // 防御性截断：防止超长密码导致 PBKDF2 CPU 耗尽（正常限制由 validatePasswordStrength 保证）
+  const safePassword = password.slice(0, 20);
   const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(password),
+    new TextEncoder().encode(safePassword),
     'PBKDF2',
     false,
     ['deriveBits']
@@ -44,9 +46,11 @@ export async function verifyPassword(password: string, storedHash: string): Prom
   const salt = fromBase64(parts[3]);
   const storedKey = fromBase64(parts[4]);
 
+  // 防御性截断：与 hashPassword 保持一致
+  const safePassword = password.slice(0, 20);
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    new TextEncoder().encode(password),
+    new TextEncoder().encode(safePassword),
     'PBKDF2',
     false,
     ['deriveBits']

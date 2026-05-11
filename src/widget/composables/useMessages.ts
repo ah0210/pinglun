@@ -1,31 +1,50 @@
-// src/widget/composables/useMessages.ts — 留言 CRUD
+// src/widget/composables/useMessages.ts — 留言 CRUD（游标分页）
 
 import { ref } from 'vue';
 import { apiGet, apiPost } from '../../shared/api';
-import type { PublicMessage, PaginatedResponse, BoardConfig } from '../../shared/types';
+import type { PublicMessage, CursorPaginatedResponse, BoardConfig } from '../../shared/types';
 
 export function useMessages(apiBase: string) {
   const messages = ref<PublicMessage[]>([]);
-  const total = ref(0);
-  const page = ref(1);
-  const totalPages = ref(0);
+  const hasMore = ref(true);
   const loading = ref(false);
+  const nextCursor = ref<string | null>(null);
   const config = ref<BoardConfig | null>(null);
 
-  async function fetchMessages(pageId: string, pageNum = 1, limit = 20, showLoading = true) {
+  async function fetchMessages(pageId: string, cursor = '', limit = 20, showLoading = true) {
     if (showLoading) loading.value = true;
     try {
       const cacheBust = showLoading ? '' : `&t=${Date.now()}`;
-      const resp = await apiGet<PaginatedResponse<PublicMessage>>(
+      const cursorParam = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+      const resp = await apiGet<CursorPaginatedResponse<PublicMessage>>(
         apiBase,
-        `/messages?pageId=${encodeURIComponent(pageId)}&page=${pageNum}&limit=${limit}${cacheBust}`
+        `/messages?pageId=${encodeURIComponent(pageId)}&limit=${limit}${cursorParam}${cacheBust}`
       );
 
       if (resp.success && resp.data) {
         messages.value = resp.data.items;
-        total.value = resp.data.total;
-        page.value = resp.data.page;
-        totalPages.value = resp.data.totalPages;
+        hasMore.value = resp.data.hasMore;
+        nextCursor.value = resp.data.nextCursor;
+      }
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /** 加载下一页（追加模式） */
+  async function loadMore(pageId: string, limit = 20) {
+    if (!hasMore.value || !nextCursor.value) return;
+    loading.value = true;
+    try {
+      const resp = await apiGet<CursorPaginatedResponse<PublicMessage>>(
+        apiBase,
+        `/messages?pageId=${encodeURIComponent(pageId)}&limit=${limit}&cursor=${encodeURIComponent(nextCursor.value)}`
+      );
+
+      if (resp.success && resp.data) {
+        messages.value = [...messages.value, ...resp.data.items];
+        hasMore.value = resp.data.hasMore;
+        nextCursor.value = resp.data.nextCursor;
       }
     } finally {
       loading.value = false;
@@ -48,20 +67,20 @@ export function useMessages(apiBase: string) {
   }) {
     const resp = await apiPost<PublicMessage>(apiBase, '/messages', data);
     if (resp.success) {
-      // 发帖成功后重新拉取列表（跳回第1页以显示最新留言）
-      await fetchMessages(data.pageId, 1, 20, false);
+      // 发帖成功后重新拉取列表（从首页开始）
+      await fetchMessages(data.pageId, '', 20, false);
     }
     return resp;
   }
 
   return {
     messages,
-    total,
-    page,
-    totalPages,
+    hasMore,
+    nextCursor,
     loading,
     config,
     fetchMessages,
+    loadMore,
     fetchConfig,
     postMessage,
   };

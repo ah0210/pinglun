@@ -63,3 +63,21 @@ export function paginatedResponse(
     },
   }, { headers });
 }
+
+/** 游标分页响应（无 COUNT，高性能） */
+export function cursorPaginatedResponse(
+  items: unknown[],
+  limit: number,
+  nextCursor: string | null,
+  headers?: Record<string, string>
+): Response {
+  return Response.json({
+    success: true,
+    data: {
+      items,
+      limit,
+      nextCursor,
+      hasMore: nextCursor !== null,
+    },
+  }, { headers });
+}

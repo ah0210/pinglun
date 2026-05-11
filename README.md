@@ -510,7 +510,7 @@ cf-guestbook/
 ## 安全
 
 - JWT_SECRET 使用随机生成的 32+ 字符密钥
-- 密码使用 PBKDF2-SHA256（600000 次迭代）加密
+- 密码使用 PBKDF2-SHA256（600000 次迭代）加密，密码长度限制 6-20 字符（防 PBKDF2 DoS）
 - Refresh Token 存储在 HttpOnly Cookie（SameSite=None; Secure）
 - 所有用户输入入库前 HTML 转义
 - CORS 仅允许配置的域名
@@ -519,6 +519,15 @@ cf-guestbook/
 - 找回密码防邮箱枚举（无论邮箱是否存在均返回相同提示）
 - 找回密码双维度频率限制（邮箱 1 次/分钟 + IP 3 次/5分钟）
 - 邮箱验证前后端双重拦截留言，管理员豁免
+- 登录频率限制基于 D1 数据库（IP + 用户名双维度），解决 Serverless 内存隔离问题
+- 最后管理员保护（禁止降级最后一个管理员的角色）
+- API 响应不泄露用户邮箱（`toPublicUser` 已移除 email 字段）
+- 用户数据端点使用 `private` Cache-Control（防 CDN 缓存敏感数据）
+- 留言列表端点使用 `no-store` Cache-Control（防 CDN 缓存投毒）
+- 游标分页替代 OFFSET 分页（防深分页性能劣化）
+- 留言列表移除 `COUNT(*)` 查询（使用 limit+1 判断是否有更多）
+- 邮件模板中 URL 注入防护（仅允许 http/https 协议，使用 URL 对象编码）
+- 异步邮件发送使用 `ctx.waitUntil()` 确保 Workers 不会提前终止
 
 ## 测试
 
@@ -591,6 +600,138 @@ pnpm run test:widget
 ```
 
 浏览器访问 `http://127.0.0.1:8788/test-widget.html`，页面会自动检测 API/JS/CSS 并渲染留言板。
+
+### 安全与性能测试建议
+
+以下针对 v1.0.0 安全加固项的专项测试，建议部署前逐一验证：
+
+#### 1. 密码长度限制（防 PBKDF2 DoS）
+
+```bash
+# 超长密码应被拒绝（> 20 字符）
+curl -X POST http://localhost:8788/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"dosuser","email":"dos@test.com","password":"AAAAAAAAAABBBBBBBBBB1","turnstileToken":"1x00000000000000000000AA"}'
+# 期望：400 错误，提示密码不能超过 20 个字符
+
+# 边界：恰好 20 字符应通过
+curl -X POST http://localhost:8788/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"boundaryuser","email":"boundary@test.com","password":"AAAAAAAAAABBBBBBBBB1","turnstileToken":"1x00000000000000000000AA"}'
+# 期望：注册成功
+```
+
+#### 2. D1 登录频率限制
+
+```bash
+# 连续错误登录 5 次后应被临时锁定
+for i in {1..6}; do
+  curl -s -X POST http://localhost:8788/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"username":"testuser","password":"WrongPass${i}","turnstileToken":"1x00000000000000000000AA"}'
+  echo ""
+done
+# 期望：前 5 次返回 401，第 6 次返回 429（请求过于频繁）
+
+# 检查 login_attempts 表是否正确记录
+npx wrangler d1 execute guestbook --local --command "SELECT * FROM login_attempts ORDER BY attempted_at DESC LIMIT 10"
+```
+
+#### 3. 缓存头验证（防 CDN 缓存投毒）
+
+```bash
+# 留言列表应为 no-store（防止匿名用户看到其他用户的私有数据）
+curl -I http://localhost:8788/api/v1/messages
+# 期望：Cache-Control: no-store
+
+# 公开配置端点可缓存
+curl -I http://localhost:8788/api/v1/config
+# 期望：Cache-Control: public, max-age=60（或类似）
+
+# 用户数据端点应为 private
+curl -I -H "Authorization: Bearer <ACCESS_TOKEN>" http://localhost:8788/api/v1/auth/me
+# 期望：Cache-Control: private, ...
+```
+
+#### 4. 游标分页验证
+
+```bash
+# 第一页请求（无 cursor）
+curl -s "http://localhost:8788/api/v1/messages?limit=5" | python -m json.tool
+# 期望响应格式：{ "items": [...], "limit": 5, "nextCursor": "...", "hasMore": true/false }
+
+# 第二页请求（使用上一次返回的 nextCursor）
+curl -s "http://localhost:8788/api/v1/messages?limit=5&cursor=<NEXT_CURSOR>" | python -m json.tool
+# 期望：返回下一批数据，无重复
+
+# 验证不再返回 total 字段
+# 期望：响应中无 "total" 字段
+```
+
+#### 5. 邮箱泄露检查
+
+```bash
+# 留言列表不应包含邮箱
+curl -s "http://localhost:8788/api/v1/messages" | python -m json.tool
+# 期望：用户对象中无 email 字段
+
+# 单条留言详情不应包含邮箱
+curl -s -H "Authorization: Bearer <ACCESS_TOKEN>" "http://localhost:8788/api/v1/messages/<MESSAGE_ID>" | python -m json.tool
+# 期望：用户对象中无 email 字段
+
+# 当前用户接口可返回自己的邮箱
+curl -s -H "Authorization: Bearer <ACCESS_TOKEN>" "http://localhost:8788/api/v1/auth/me" | python -m json.tool
+# 期望：仅此接口返回 email（用户自己的数据）
+```
+
+#### 6. 最后管理员保护
+
+```bash
+# 确保系统中只有一个管理员，尝试降级其角色
+curl -s -X PATCH "http://localhost:8788/api/v1/admin/users/<ADMIN_USER_ID>" \
+  -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"role":"user"}'
+# 期望：403 错误，提示无法降级最后一个管理员
+```
+
+#### 7. 秘密留言权限（作者可查看自己的待审核留言）
+
+```bash
+# 用普通用户提交留言（设置 is_secret=true 或等待审核状态为 pending）
+# 然后用该用户身份请求单条留言
+curl -s -H "Authorization: Bearer <USER_ACCESS_TOKEN>" "http://localhost:8788/api/v1/messages/<PENDING_MESSAGE_ID>"
+# 期望：作者可查看自己待审核的留言内容（其他人应被拒绝）
+```
+
+#### 8. URL 注入防护（邮件模板）
+
+```bash
+# 注册时使用 javascript: 协议的网站 URL（如果支持网站字段）
+# 或手动触发修改邮箱流程，检查重置链接是否仅包含 http/https URL
+# 期望：非 http/https 协议的 URL 被拒绝或替换为空
+```
+
+#### 9. 异步邮件可靠性
+
+```bash
+# 注册新用户，观察邮件是否正常发送
+# 关键：Workers 不会因响应提前返回而中断邮件发送
+# 可通过检查 Resend 控制台日志确认邮件投递状态
+```
+
+#### 10. 数据库迁移验证
+
+```bash
+# 确认 login_attempts 表已创建
+npx wrangler d1 execute guestbook --local --command "SELECT sql FROM sqlite_master WHERE name='login_attempts'"
+# 期望：输出建表语句
+
+# 远程环境执行迁移
+pnpm run db:migrate:remote  # 需先在 package.json 中添加对应脚本
+# 或手动执行：
+npx wrangler d1 execute guestbook --remote --file=sql/006_login_attempts.sql
+```
 
 ## 许可
 

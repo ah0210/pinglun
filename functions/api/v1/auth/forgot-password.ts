@@ -61,10 +61,10 @@ export const onRequestPost = apiHandler(async (request, env) => {
       'INSERT INTO password_resets (user_id, token_hash, expires_at, ip_address) VALUES (?, ?, ?, ?)'
     ).bind(dbUser.id, resetTokenHash, expiresAt, clientIp).run();
 
-    // 发送邮件（异步，不阻塞响应）
+    // 发送邮件（异步，使用 waitUntil 确保 Worker 不提前销毁）
     const resetUrl = `${env.PUBLIC_URL}/api/v1/auth/reset-password?token=${resetToken}`;
     const html = buildResetPasswordHtml(dbUser.username, resetUrl);
-    sendEmail({ to: dbUser.email, subject: '重置您的密码', html }, env).catch(() => {});
+    ctx.waitUntil(sendEmail({ to: dbUser.email, subject: '重置您的密码', html }, env).catch(() => {}));
   }
 
   // 统一模糊提示，防枚举
