@@ -13,7 +13,7 @@
   </style>
 </head>
 <body>
-  <h1>留言板 Widget 本地测试</h1>
+  <h1>留言板 Widget 测试</h1>
   <div id="diagnostics" class="log"></div>
 
   <h2>方式1：JS 初始化</h2>
@@ -23,11 +23,16 @@
 
   <h2>方式2：HTML 标签</h2>
   <guestbook-widget
-    api-base="http://localhost:8788"
+    api-base=""
     page-id="/test-page"
   ></guestbook-widget>
 
   <script>
+    // 根据当前访问地址自动确定 API 地址
+    var API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:8788'
+      : window.location.origin;
+
     var logEl = document.getElementById('diagnostics');
     function log(msg, type) {
       var span = document.createElement('span');
@@ -36,6 +41,10 @@
       logEl.appendChild(span);
     }
 
+    // 设置 HTML 标签方式的 api-base
+    document.querySelector('guestbook-widget').setAttribute('api-base', API_BASE);
+
+    log('0. API 地址: ' + API_BASE, 'ok');
     log('1. 检查 customElements API...', '');
     log('   customElements: ' + typeof customElements, typeof customElements === 'object' ? 'ok' : 'error');
 
@@ -43,7 +52,7 @@
   </script>
 
   <script src="/widget.js"
-    onload="log('   widget.js 加载成功', 'ok'); log('3. 检查 GuestbookWidget: ' + typeof window.GuestbookWidget, typeof window.GuestbookWidget === 'object' ? 'ok' : 'error'); if(window.GuestbookWidget){GuestbookWidget.init({container:'#guestbook-container',pageId:'/test-page-js',apiBase:'http://localhost:8788',theme:'auto'});log('4. GuestbookWidget.init() 已调用','ok')}else{log('   window.GuestbookWidget 未定义！','error')}"
+    onload="log('   widget.js 加载成功', 'ok'); log('3. 检查 GuestbookWidget: ' + typeof window.GuestbookWidget, typeof window.GuestbookWidget === 'object' ? 'ok' : 'error'); if(window.GuestbookWidget){GuestbookWidget.init({container:'#guestbook-container',pageId:'/test-page-js',apiBase:API_BASE,theme:'auto'});log('4. GuestbookWidget.init() 已调用','ok')}else{log('   window.GuestbookWidget 未定义！','error')}"
     onerror="log('   widget.js 加载失败！', 'error')">
   </script>
 
