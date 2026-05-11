@@ -122,8 +122,19 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_
 CREATE INDEX IF NOT EXISTS idx_password_resets_hash ON password_resets(token_hash);
 CREATE INDEX IF NOT EXISTS idx_password_resets_user ON password_resets(user_id);
 
+-- 登录失败记录表（替代内存 Map，支持多边缘节点分布式限流）
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip_address TEXT NOT NULL,
+  success    INTEGER NOT NULL DEFAULT 0,  -- 0=失败, 1=成功
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, created_at);
+
 -- 记录初始迁移
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');
 INSERT OR IGNORE INTO _migrations (name) VALUES ('003_add_min_length');
 INSERT OR IGNORE INTO _migrations (name) VALUES ('004_password_resets');
 INSERT OR IGNORE INTO _migrations (name) VALUES ('005_email_verified_at');
+INSERT OR IGNORE INTO _migrations (name) VALUES ('006_login_attempts');

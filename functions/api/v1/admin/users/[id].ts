@@ -18,13 +18,18 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.USER_NOT_FOUND, '用户不存在', 404);
   }
 
-  // 防止降级最后一个管理员：如果要降级管理员角色，检查是否是最后一个
-  if (body.role === 'user' && dbUser.role === 'admin') {
-    const adminCount = await env.DB.prepare(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'admin'"
-    ).first<{ count: number }>();
-    if (adminCount && adminCount.count <= 1) {
-      return errorResponse(ErrorCode.VALIDATION_ERROR, '不能降级最后一个管理员', 400);
+  // 防止降级/禁用最后一个管理员
+  if (dbUser.role === 'admin') {
+    const needProtection =
+      (body.role === 'user') ||  // 降级角色
+      (body.status && body.status !== 'active');  // 禁用状态
+    if (needProtection) {
+      const adminCount = await env.DB.prepare(
+        "SELECT COUNT(*) as count FROM users WHERE role = 'admin' AND status = 'active'"
+      ).first<{ count: number }>();
+      if (adminCount && adminCount.count <= 1) {
+        return errorResponse(ErrorCode.VALIDATION_ERROR, '不能降级或禁用最后一个管理员', 400);
+      }
     }
   }
 

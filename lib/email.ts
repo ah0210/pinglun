@@ -67,8 +67,7 @@ function sanitizeUrl(url: string): string {
     const parsed = new URL(url);
     // 仅允许 http/https 协议，防止 javascript: 注入
     if (!['http:', 'https:'].includes(parsed.protocol)) return '#';
-    // 对查询参数值进行严格编码
-    parsed.searchParams.toString(); // 触发自动编码
+    // new URL() 构造时已自动编码查询参数，直接返回规范化后的 href
     return parsed.href;
   } catch {
     return '#';

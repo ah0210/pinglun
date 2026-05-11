@@ -36,7 +36,7 @@ export async function hashPassword(password: string): Promise<string> {
     keyMaterial,
     KEY_LENGTH
   );
-  return `pbkdf2:sha256:${ITERATIONS}:${toBase64(salt.buffer)}:${toBase64(derived)}`;
+  return `pbkdf2:sha256:${ITERATIONS}:${toBase64(toArrayBuffer(salt))}:${toBase64(derived)}`;
 }
 
 export async function verifyPassword(password: string, storedHash: string): Promise<boolean> {

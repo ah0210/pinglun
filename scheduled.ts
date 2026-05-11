@@ -51,6 +51,20 @@ export default {
         console.error('[Cron] Failed to clean revoked tokens:', e);
       }
 
+      // 清理 7 天前的登录尝试记录（仅保留近期数据用于频率限制）
+      try {
+        const attemptResult = await env.DB.prepare(
+          "DELETE FROM login_attempts WHERE created_at < datetime('now', '-7 days')"
+        ).run();
+        const count = attemptResult.meta.changes;
+        results.push(`过期登录记录: ${count} 条`);
+        console.log(`[Cron] Deleted ${count} old login attempts`);
+      } catch (e) {
+        hasError = true;
+        results.push(`过期登录记录: 失败 - ${e}`);
+        console.error('[Cron] Failed to clean login attempts:', e);
+      }
+
       if (hasError) {
         console.error(`[Cron] Cleanup completed with errors: ${results.join('; ')}`);
       } else {
