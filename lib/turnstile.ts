@@ -12,9 +12,14 @@ export function isTestKey(secretKey: string): boolean {
   return TEST_SECRET_KEYS.has(secretKey);
 }
 
+/** Turnstile 是否已配置（secretKey 非空且非测试密钥） */
+export function isTurnstileConfigured(secretKey: string): boolean {
+  return !!secretKey && !TEST_SECRET_KEYS.has(secretKey);
+}
+
 export async function verifyTurnstile(token: string, secretKey: string, remoteIp?: string): Promise<boolean> {
-  // 使用测试密钥时自动通过（本地开发环境 Turnstile widget 可能无法正常渲染）
-  if (TEST_SECRET_KEYS.has(secretKey)) {
+  // 未配置 secret key 或使用测试密钥时自动通过
+  if (!secretKey || TEST_SECRET_KEYS.has(secretKey)) {
     return true;
   }
 

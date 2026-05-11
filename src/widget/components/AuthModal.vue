@@ -394,62 +394,76 @@ function handleOverlayTouchEnd(e: TouchEvent) {
 }
 
 // ===== Turnstile =====
+let turnstileWidgetId: string | null = null;
+
 function renderTurnstile(action: string): Promise<string> {
   return new Promise((resolve) => {
     const turnstile = (window as any).turnstile;
     if (!turnstile) {
+      console.warn('[Guestbook] Turnstile JS not loaded, skipping captcha');
+      resolve('');
+      return;
+    }
+    if (!props.siteKey) {
+      console.warn('[Guestbook] Turnstile siteKey not configured, skipping captcha');
       resolve('');
       return;
     }
 
+    // 先清理旧的 widget
+    removeTurnstileContainer();
+
     const containerId = `gb-turnstile-modal-${instanceId}`;
-    let container = document.getElementById(containerId);
-    if (!container) {
-      container = document.createElement('div');
-      container.id = containerId;
-      container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;';
-      document.body.appendChild(container);
-    }
+    const container = document.createElement('div');
+    container.id = containerId;
+    container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;';
+    document.body.appendChild(container);
 
     const timeout = setTimeout(() => {
+      console.warn('[Guestbook] Turnstile verification timed out');
       removeTurnstileContainer();
       resolve('');
-    }, 10000);
+    }, 15000);
 
     try {
-      const widgetId = turnstile.render(`#${containerId}`, {
+      turnstileWidgetId = turnstile.render(`#${containerId}`, {
         sitekey: props.siteKey,
         callback: (token: string) => {
           clearTimeout(timeout);
           resolve(token);
         },
-        'error-callback': () => {
+        'error-callback': (error: string) => {
           clearTimeout(timeout);
+          console.warn('[Guestbook] Turnstile error:', error);
           resolve('');
         },
         'expired-callback': () => {
           clearTimeout(timeout);
+          console.warn('[Guestbook] Turnstile token expired');
           resolve('');
         },
         size: 'compact',
         execution: 'execute',
       });
-      turnstile.execute(widgetId);
-    } catch {
+      turnstile.execute(turnstileWidgetId);
+    } catch (e) {
       clearTimeout(timeout);
+      console.warn('[Guestbook] Turnstile render failed:', e);
       resolve('');
     }
   });
 }
 
 function removeTurnstileContainer() {
+  const turnstile = (window as any).turnstile;
+  // 用 widgetId 而非 containerId 来移除（Turnstile API 要求）
+  if (turnstile && turnstileWidgetId) {
+    try { turnstile.remove(turnstileWidgetId); } catch {}
+    turnstileWidgetId = null;
+  }
   const containerId = `gb-turnstile-modal-${instanceId}`;
   const container = document.getElementById(containerId);
   if (container) {
-    const turnstile = (window as any).turnstile;
-    if (turnstile) {
-      try { turnstile.remove(containerId); } catch {}
-    }
     container.remove();
   }
 }

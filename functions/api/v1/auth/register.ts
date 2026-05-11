@@ -1,7 +1,7 @@
 // functions/api/v1/auth/register.ts — 用户注册
 import { apiHandler } from '../../../../lib/middleware';
 import { hashPassword } from '../../../../lib/crypto';
-import { verifyTurnstile, isTestKey } from '../../../../lib/turnstile';
+import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
 import { sendEmail, buildVerifyEmailHtml } from '../../../../lib/email';
 import { signAccessToken, generateToken, hashToken, getRefreshTokenExpiry } from '../../../../lib/jwt';
 import { getAvatarUrl } from '../../../../lib/avatar';
@@ -9,7 +9,7 @@ import { escapeHtml, sanitizeUsername, sanitizeEmail, validatePasswordStrength }
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
 import type { Env, DbUser } from '../../../../lib/types';
 
-export const onRequestPost = apiHandler(async (request, env) => {
+export const onRequestPost = apiHandler(async (request, env, ctx) => {
   const body = await request.json() as {
     username: string;
     email: string;
@@ -17,12 +17,20 @@ export const onRequestPost = apiHandler(async (request, env) => {
     turnstileToken: string;
   };
 
-  // 验证必填字段（测试密钥环境下 turnstileToken 可选）
+  // 验证必填字段
   if (!body.username || !body.email || !body.password) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写所有必填字段', 400);
   }
-  if (!body.turnstileToken && !isTestKey(env.TURNSTILE_SECRET_KEY || '')) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
+
+  // Turnstile 验证（未配置或测试密钥时跳过）
+  if (isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
+    if (!body.turnstileToken) {
+      return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
+    }
+    const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
+    if (!turnstileValid) {
+      return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败，请重试', 400);
+    }
   }
 
   const username = sanitizeUsername(body.username);
@@ -49,12 +57,6 @@ export const onRequestPost = apiHandler(async (request, env) => {
   const config = await env.DB.prepare('SELECT allow_registration FROM board_config WHERE id = 1').first<{ allow_registration: number }>();
   if (config && !config.allow_registration) {
     return errorResponse(ErrorCode.REGISTRATION_DISABLED, '注册功能已关闭', 403);
-  }
-
-  // Turnstile 验证
-  const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
-  if (!turnstileValid) {
-    return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败，请重试', 400);
   }
 
   // 检查用户名/邮箱是否已存在

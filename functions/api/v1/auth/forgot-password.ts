@@ -1,6 +1,6 @@
 // functions/api/v1/auth/forgot-password.ts — 忘记密码（发送重置邮件）
 import { apiHandler, getClientIp } from '../../../../lib/middleware';
-import { verifyTurnstile, isTestKey } from '../../../../lib/turnstile';
+import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
 import { sendEmail, buildResetPasswordHtml } from '../../../../lib/email';
 import { generateToken, hashToken } from '../../../../lib/jwt';
 import { sanitizeEmail } from '../../../../lib/sanitize';
@@ -16,8 +16,8 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   const email = sanitizeEmail(body.email);
 
-  // Turnstile 验证（测试密钥环境跳过空 token）
-  if (!isTestKey(env.TURNSTILE_SECRET_KEY || '')) {
+  // Turnstile 验证（未配置时跳过）
+  if (isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
     if (!body.turnstileToken) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }

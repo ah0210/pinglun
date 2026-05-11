@@ -118,7 +118,7 @@ async function handleReplySubmit() {
   try {
     // 获取 Turnstile token（如果需要）
     let turnstileToken = '';
-    if (props.requireCaptcha && (window as any).turnstile) {
+    if (props.requireCaptcha && (window as any).turnstile && props.siteKey) {
       turnstileToken = await new Promise<string>((resolve) => {
         const containerId = `gb-turnstile-reply-${Date.now()}`;
         const el = document.createElement('div');
@@ -126,29 +126,35 @@ async function handleReplySubmit() {
         el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
         document.body.appendChild(el);
 
-        const timeout = setTimeout(() => {
-          try { (window as any).turnstile.remove(containerId); } catch {}
+        let widgetId: string | null = null;
+        const cleanup = () => {
+          if (widgetId) {
+            try { (window as any).turnstile.remove(widgetId); } catch {}
+          }
           el.remove();
+        };
+
+        const timeout = setTimeout(() => {
+          cleanup();
           resolve('');
-        }, 10000);
+        }, 15000);
 
         try {
-          const widgetId = (window as any).turnstile.render(`#${containerId}`, {
+          widgetId = (window as any).turnstile.render(`#${containerId}`, {
             sitekey: props.siteKey,
             callback: (token: string) => {
               clearTimeout(timeout);
-              try { (window as any).turnstile.remove(containerId); } catch {}
-              el.remove();
+              cleanup();
               resolve(token);
             },
             'error-callback': () => {
               clearTimeout(timeout);
-              try { (window as any).turnstile.remove(containerId); } catch {}
-              el.remove();
+              cleanup();
               resolve('');
             },
             'expired-callback': () => {
               clearTimeout(timeout);
+              cleanup();
               resolve('');
             },
             size: 'compact',
@@ -157,7 +163,7 @@ async function handleReplySubmit() {
           (window as any).turnstile.execute(widgetId);
         } catch {
           clearTimeout(timeout);
-          el.remove();
+          cleanup();
           resolve('');
         }
       });

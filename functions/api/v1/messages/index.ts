@@ -1,6 +1,6 @@
 // functions/api/v1/messages/index.ts — 留言列表 + 提交留言
 import { apiHandler } from '../../../../lib/middleware';
-import { verifyTurnstile, isTestKey } from '../../../../lib/turnstile';
+import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
 import { escapeHtml } from '../../../../lib/sanitize';
 import { noCacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse, cursorPaginatedResponse } from '../../../../lib/response';
@@ -191,8 +191,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.MESSAGE_REPEATED_CHARS, '留言不能包含过多连续重复字符', 400);
   }
 
-  // 验证码检查（测试密钥环境跳过空 token 检查，因为本地 Turnstile widget 可能无法渲染）
-  if (config?.require_captcha && !isTestKey(env.TURNSTILE_SECRET_KEY || '')) {
+  // 验证码检查（未配置 Turnstile 时跳过）
+  if (config?.require_captcha && isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
     if (!body.turnstileToken) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }
