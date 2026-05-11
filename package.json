@@ -8,15 +8,14 @@
     "dev": "pnpm run build && wrangler pages dev dist",
     "build:widget": "vite build --config vite.widget.config.ts",
     "build:admin": "vite build --config vite.admin.config.ts",
-    "build": "pnpm run build:widget && pnpm run build:admin && pnpm run copy:test",
+    "build": "pnpm run build:widget && pnpm run build:admin",
     "typecheck": "tsc --noEmit",
     "preview": "wrangler pages dev dist",
     "db:init": "wrangler d1 execute guestbook --local --file=sql/001_init.sql",
     "db:seed": "wrangler d1 execute guestbook --local --file=sql/002_seed.sql",
     "db:init:remote": "wrangler d1 execute guestbook --remote --file=sql/001_init.sql",
     "db:seed:remote": "wrangler d1 execute guestbook --remote --file=sql/002_seed.sql",
-    "test:widget": "pnpm run build && pnpm run copy:test && pnpm run preview",
-    "copy:test": "copy test\\test-widget.html dist\\test-widget.html"
+    "test:widget": "pnpm run build && pnpm run preview"
   },
   "dependencies": {
     "naive-ui": "^2.40.0",
