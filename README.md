@@ -143,15 +143,16 @@ pnpm run test:widget
 
 ### 6. 初始化管理员
 
-向 `http://localhost:8788/api/v1/setup` 发送 POST 请求创建管理员。不能直接在浏览器地址栏访问该接口，因为地址栏会发送 GET 请求。
+**第一个注册的用户自动成为管理员**，无需独立 setup 步骤。
 
 ```bash
-curl -X POST http://localhost:8788/api/v1/setup \
+# 注册第一个用户（自动成为管理员）
+curl -X POST http://localhost:8788/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","email":"admin@example.com","password":"YourSecurePassword123"}'
-```
+  -d '{"username":"admin","email":"admin@example.com","password":"YourSecurePassword123","turnstileToken":"1x00000000000000000000AA"}'
 
-也可以通过 `.dev.vars` 中的 `ADMIN_USERNAME`、`ADMIN_EMAIL`、`ADMIN_PASSWORD` 环境变量设置默认值，setup 接口会自动读取。
+# 后续注册的用户为普通用户
+```
 
 本地数据库资源管理器：`http://127.0.0.1:8788/cdn-cgi/explorer/`
 
@@ -184,224 +185,82 @@ wrangler secret put TURNSTILE_SECRET_KEY
 
 ## 线上部署指南
 
-以下提供两种部署方式，按推荐优先级排列。
 
-### 方式一：Git 连接 Cloudflare Pages（推荐）
+### 首次部署步骤（已完成，仅供参考）
 
-自动化程度最高，推送代码即部署。
+1. Dashboard → 构建 → 计算 → Workers & Pages → 创建应用程序Create →  (不要选continue with github!) 往下拉看到：想要部署 Pages？点击：开始使用
+2. 导入现有 Git 存储库 从导入现有 Git 存储库开始。 → 从您的帐户部署站点 → 选择一个存储库 `ah0210/pinglun`
+3. 构建设置：构建命令Build command = `pnpm run build`，构建输出目录Output = `dist` 
+4. **环境变量**（Settings → Environment variables）：加密添加 `JWT_SECRET`、`RESEND_API_KEY`、`TURNSTILE_SECRET_KEY`
+5. **D1 绑定**（Settings → Functions → D1 database bindings）：`DB` → `guestbook`
+6. **自定义域名**（Settings → Custom domains）：添加 `guestbook.17you.com`
+7. **初始化数据库**：`pnpm run db:init:remote && pnpm run db:seed:remote`
+8. **创建管理员**：`POST /api/v1/setup`
 
-#### 步骤 1：推送代码到 GitHub
-
-```bash
-git add -A && git commit -m "v1.0.0 release" && git push origin main
-```
-
-#### 步骤 2：在 Cloudflare Dashboard 创建 Pages 项目
-
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com) → Workers & Pages → Create
-2. 选择 **Connect to Git**
-3. 关联你的 GitHub 仓库
-4. 构建设置：
-   - **Framework preset**: `None`
-   - **Build command**: `pnpm run build`
-   - **Build output directory**: `dist`
-   - **Root directory**: `/`（默认）
-
-#### 步骤 3：配置环境变量
-
-在 Pages 项目的 **Settings → Environment variables** 中添加：
-
-**密钥（加密，需点 "Encrypt"）**：
-
-| 变量名 | 说明 |
-|--------|------|
-| `JWT_SECRET` | 32+ 字符随机密钥，如 `openssl rand -hex 24` 生成 |
-| `RESEND_API_KEY` | Resend API Key，格式 `re_xxxxx` |
-| `TURNSTILE_SECRET_KEY` | Turnstile 密钥，格式 `0x4AAAAAAA...` |
-
-**非密钥（普通变量，已写入 wrangler.toml 可跳过）**：
-
-| 变量名 | 示例值 | 说明 |
-|--------|--------|------|
-| `PUBLIC_URL` | `https://you-guestbook.pages.dev` | 站点公开 URL |
-| `SITE_NAME` | `自游人留言板` | 站点名称 |
-| `ALLOWED_ORIGINS` | `https://www.17you.com,https://you-guestbook.pages.dev` | CORS 允许来源 |
-| `EMAIL_DOMAIN` | `17you.com` | Resend 发件域名 |
-| `EMAIL_FROM_NAME` | `自游人` | 发件人名称 |
-
-> **注意**：`wrangler.toml` 中的 `[vars]` 仅对 `wrangler pages deploy` 手动部署生效。Git 连接部署需在 Dashboard 中单独配置环境变量。
-
-#### 步骤 4：绑定 D1 数据库
-
-在 Pages 项目的 **Settings → Functions → D1 database bindings** 中：
-
-- **Variable name**: `DB`（必须与代码中的绑定名一致）
-- **D1 database**: 选择你创建的 `guestbook` 数据库
-
-#### 步骤 5：配置 Cron 定时任务
-
-在 Pages 项目的 **Settings → Functions → Cron triggers** 中添加：
-
-```
-0 0 * * *
-```
-
-这将每天 UTC 00:00 触发 `scheduled.ts`，清理过期验证、Token 和登录记录。
-
-#### 步骤 6：初始化远程数据库
+### 后续日常开发流程
 
 ```bash
-# 初始化表结构
-pnpm run db:init:remote
-
-# 插入种子数据
-pnpm run db:seed:remote
-
-# 如果是已有部署升级，还需执行增量迁移
-npx wrangler d1 execute guestbook --remote --file=sql/006_login_attempts.sql
+# 本地修改 → 提交 → 推送 → 自动部署
+git add -A
+git commit -m "修改说明"
+git push origin main
 ```
 
-#### 步骤 7：触发首次部署
+Cloudflare 自动构建部署，约 2-3 分钟生效。
 
-推送代码后 Pages 会自动构建部署。也可以在 Dashboard 的 Deployments 页面手动 **Retry deployment**。
-
-#### 步骤 8：创建管理员
-
-```bash
-curl -X POST https://you-guestbook.pages.dev/api/v1/setup \
-  -H "Content-Type: application/json" \
-  -d '{"username":"your_admin","email":"admin@yourdomain.com","password":"YourSecurePassword"}'
-```
-
-> **建议**：通过 `wrangler secret put ADMIN_USERNAME` / `ADMIN_EMAIL` / `ADMIN_PASSWORD` 预设凭据，防止请求体覆盖。创建成功后这些 Secret 可删除。
+> **注意**：`wrangler.toml` 中的 `[vars]`（PUBLIC_URL 等）**对 Git 连接部署不生效**，须在 Dashboard 环境变量中配置。
 
 ---
 
-### 方式二：CLI 手动部署
+### 配置摘要
 
-适合不想连接 GitHub 或需要精细控制的场景。
+| 配置项 | 值 |
+|--------|-----|
+| 访问地址 | `https://guestbook.17you.com` |
+| 回退域名 | `https://pinglun-9ve.pages.dev` |
+| D1 绑定 | `DB` → `guestbook` |
+| 加密变量 | JWT_SECRET / RESEND_API_KEY / TURNSTILE_SECRET_KEY |
+| CORS | `https://www.17you.com,https://guestbook.17you.com` |
 
-#### 步骤 1：构建项目
-
-```bash
-pnpm run build
-```
-
-#### 步骤 2：首次部署
-
-```bash
-wrangler pages deploy dist --project-name=you-guestbook
-```
-
-首次部署会自动创建 Pages 项目，记住输出的 URL（如 `https://you-guestbook.pages.dev`）。
-
-#### 步骤 3：绑定 D1 数据库
+### 验证清单
 
 ```bash
-# 通过 Dashboard 设置，或使用以下命令（需 Wrangler v3+）
-# Settings → Functions → D1 database bindings → 添加 DB = guestbook
+# API
+curl https://guestbook.17you.com/api/v1/config
+
+# 缓存头
+curl -I https://guestbook.17you.com/api/v1/config    # 期望 public
+curl -I https://guestbook.17you.com/api/v1/messages   # 期望 no-store
+
+# 管理后台
+# 浏览器打开 https://guestbook.17you.com/admin/
+
+# Widget 测试页
+# 浏览器打开 https://guestbook.17you.com/test-widget.html
 ```
 
-> D1 绑定目前只能通过 Dashboard 配置，CLI 暂不支持 Pages D1 binding 命令。
+### Cron 定时任务（可选）
 
-#### 步骤 4：设置密钥
+业务逻辑中已有自清理机制，Cron 按需配置：
 
-```bash
-# 生成随机 JWT_SECRET
-openssl rand -hex 24
+| 数据 | 自清理时机 |
+|------|-----------|
+| 登录尝试记录 | 登录成功时自动清理 |
+| 邮箱验证记录 | 验证成功后自动删除 |
+| Refresh Token | 登录 / 刷新时自动清理过期+吊销 |
 
-# 设置密钥
-wrangler pages secret put JWT_SECRET --project-name=you-guestbook
-wrangler pages secret put RESEND_API_KEY --project-name=you-guestbook
-wrangler pages secret put TURNSTILE_SECRET_KEY --project-name=you-guestbook
+如需配置：Dashboard → **Settings → Functions → Cron triggers** → 添加 `0 0 * * *`
+
+### 安全提示
+
+| 项目 | 说明 |
+|------|------|
+| Turnstile 密钥 | Dashboard 需配置**生产**密钥（非测试密钥 `1x/2x...`） |
+| Resend 域名 | 确认 `17you.com` 已在 Resend 完成 DNS 验证 |
+| JWT_SECRET | Dashboard 加密变量中已配置 |
 ```
 
-#### 步骤 5：初始化数据库 + 创建管理员
-
-```bash
-# 初始化远程数据库
-pnpm run db:init:remote
-pnpm run db:seed:remote
-
-# 创建管理员
-curl -X POST https://you-guestbook.pages.dev/api/v1/setup \
-  -H "Content-Type: application/json" \
-  -d '{"username":"your_admin","email":"admin@yourdomain.com","password":"YourSecurePassword"}'
-```
-
-#### 步骤 6：后续更新
-
-```bash
-git pull  # 拉取最新代码
-pnpm run build
-wrangler pages deploy dist --project-name=you-guestbook
-```
-
----
-
-### 部署后验证清单
-
-部署完成后，按以下顺序验证：
-
-```bash
-# 1. 检查站点可访问
-curl -I https://you-guestbook.pages.dev/api/v1/config
-# 期望：200 OK
-
-# 2. 检查缓存头（公开配置可缓存）
-curl -I https://you-guestbook.pages.dev/api/v1/config
-# 期望：Cache-Control 包含 public
-
-# 3. 检查留言列表缓存头（防缓存投毒）
-curl -I https://you-guestbook.pages.dev/api/v1/messages
-# 期望：Cache-Control: no-store
-
-# 4. 测试注册
-curl -X POST https://you-guestbook.pages.dev/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testuser","email":"test@yourdomain.com","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
-
-# 5. 测试登录
-curl -X POST https://you-guestbook.pages.dev/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testuser","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
-
-# 6. 访问管理后台
-# 浏览器打开 https://you-guestbook.pages.dev/admin/
-
-# 7. 访问 Widget 测试页
-# 浏览器打开 https://you-guestbook.pages.dev/test-widget.html
-
-# 8. 验证 D1 绑定
-npx wrangler d1 execute guestbook --remote --command "SELECT name FROM _migrations"
-# 期望：输出 001_init, 006_login_attempts 等迁移记录
-
-# 9. 检查 login_attempts 表
-npx wrangler d1 execute guestbook --remote --command "SELECT COUNT(*) as count FROM login_attempts"
-```
-
----
-
-### 自定义域名（可选）
-
-1. 在 Cloudflare Dashboard → Pages 项目 → Custom domains 添加域名
-2. 如域名不在 Cloudflare，需添加 CNAME 记录指向 `you-guestbook.pages.dev`
-3. 更新 `wrangler.toml` 中的 `PUBLIC_URL` 和 `ALLOWED_ORIGINS`
-4. 更新 Resend 中的发件域名 DNS 记录
-
----
-
-### 安全加固建议
-
-| 项目 | 状态 | 建议 |
-|------|------|------|
-| `.dev.vars` 排除 | ✅ 已在 `.gitignore` | — |
-| JWT_SECRET 强度 | ⚠️ 需确认 | 使用 `openssl rand -hex 24` 生成 48 字符密钥 |
-| Turnstile 生产密钥 | ⚠️ 需替换 | 本地测试密钥 `1x/2x...` 在生产中无效，需在 [Turnstile Dashboard](https://dash.cloudflare.com/?to=/:account/turnstile) 创建 |
-| Resend 域名验证 | ⚠️ 需确认 | 确保 Resend 中已验证发件域名并配置 DNS |
-| setup 端点 | ⚠️ 创建管理员后可忽略 | 创建管理员后，`setup_done` 标记永久不可逆，无法重复调用 |
-| 管理员密码 | ⚠️ 需修改 | 初始管理员密码建议使用强密码（大小写+数字+特殊字符，6-20位） |
-| HTTPS 强制 | ✅ Pages 自动 | Cloudflare Pages 默认强制 HTTPS |
+## 数据库升级
 
 ## 数据库升级
 
@@ -472,7 +331,7 @@ hugo-templates/
 ```toml
 [params.guestbook]
   enable = true
-  apiBase = "https://you-guestbook.pages.dev"           # 留言板服务地址（自动补全 /api/v1）
+  apiBase = "https://guestbook.17you.com"           # 留言板服务地址（自动补全 /api/v1）
   siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
   theme = "auto"                                         # "light" | "dark" | "auto"
   maxLength = 500                                        # 留言最大字数
@@ -772,10 +631,10 @@ pnpm run db:seed
 # 3. 构建并启动本地服务
 pnpm run dev
 
-# 4. 初始化管理员
-curl -X POST http://localhost:8788/api/v1/setup \
+# 4. 注册第一个用户（自动成为管理员）
+curl -X POST http://localhost:8788/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","email":"admin@test.com","password":"Test123456"}'
+  -d '{"username":"admin","email":"admin@test.com","password":"Test123456","turnstileToken":"1x00000000000000000000AA"}'
 
 # 5. 测试注册（需先配置 .dev.vars 中的 Turnstile 测试密钥）
 curl -X POST http://localhost:8788/api/v1/auth/register \
@@ -942,11 +801,6 @@ curl -s -H "Authorization: Bearer <USER_ACCESS_TOKEN>" "http://localhost:8788/ap
 # 确认 login_attempts 表已创建
 npx wrangler d1 execute guestbook --local --command "SELECT sql FROM sqlite_master WHERE name='login_attempts'"
 # 期望：输出建表语句
-
-# 远程环境执行迁移
-pnpm run db:migrate:remote  # 需先在 package.json 中添加对应脚本
-# 或手动执行：
-npx wrangler d1 execute guestbook --remote --file=sql/006_login_attempts.sql
 ```
 
 ## 许可

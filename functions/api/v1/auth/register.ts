@@ -75,6 +75,20 @@ export const onRequestPost = apiHandler(async (request, env) => {
 
   const userId = result.meta.last_row_id as number;
 
+  // 检查是否是第一个用户——如果是则自动升级为管理员（免去 setup 步骤）
+  const userCount = await env.DB.prepare(
+    'SELECT COUNT(*) as count FROM users'
+  ).first<{ count: number }>();
+  const isFirstUser = userCount && userCount.count === 1;
+  let role = 'user';
+
+  if (isFirstUser) {
+    role = 'admin';
+    await env.DB.prepare(
+      "UPDATE users SET role = 'admin', email_verified = 1 WHERE id = ?"
+    ).bind(userId).run();
+  }
+
   // 生成 Refresh Token
   const refreshToken = generateToken();
   const refreshTokenHash = await hashToken(refreshToken);
@@ -86,7 +100,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
   ).bind(userId, refreshTokenHash, expiresAt).run();
 
   // 生成 Access Token
-  const accessToken = await signAccessToken({ userId, username, role: 'user' }, env);
+  const accessToken = await signAccessToken({ userId, username, role }, env);
 
   // 创建邮箱验证 token
   const verifyToken = generateToken();
@@ -116,7 +130,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
         email: user!.email,
         emailVerified: user!.email_verified === 1,
         avatar: user!.avatar,
-        role: user!.role,
+        role,
       },
     },
   }), {

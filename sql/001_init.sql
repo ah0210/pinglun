@@ -132,9 +132,5 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, created_at);
 
--- 记录初始迁移
+-- 记录迁移版本
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');
-INSERT OR IGNORE INTO _migrations (name) VALUES ('003_add_min_length');
-INSERT OR IGNORE INTO _migrations (name) VALUES ('004_password_resets');
-INSERT OR IGNORE INTO _migrations (name) VALUES ('005_email_verified_at');
-INSERT OR IGNORE INTO _migrations (name) VALUES ('006_login_attempts');
