@@ -512,9 +512,15 @@ GuestBoard.unmountAuthBar();
 | 指令 | 域名 | 用途 |
 |------|------|------|
 | `script-src` | `your-domain.com` | widget.js |
+| `script-src` | `challenges.cloudflare.com` | Turnstile 验证码脚本 |
 | `style-src` | `your-domain.com` | 内联样式（adoptedStyleSheets） |
+| `frame-src` | `challenges.cloudflare.com` | Turnstile iframe |
 | `img-src` | `cravatar.cn` | Gravatar 头像 |
 | `connect-src` | `your-domain.com` | API 请求 |
+| `connect-src` | `challenges.cloudflare.com` | Turnstile 验证通信 |
+
+> **注意**：如果宿主页面启用了 `require-trusted-types` 策略，Turnstile 可能无法正常工作。
+> 此时建议在 CSP 中为 Turnstile 脚本添加豁免，或暂时关闭 Trusted Types 策略。
 
 ## API 端点
 

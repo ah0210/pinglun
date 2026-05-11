@@ -193,7 +193,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 验证码检查（未配置 Turnstile 时跳过）
   if (config?.require_captcha && isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
-    if (!body.turnstileToken) {
+    if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }
     const valid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);

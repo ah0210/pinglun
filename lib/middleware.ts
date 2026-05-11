@@ -84,9 +84,10 @@ export function apiHandler(
       const response = await handler(request, env, context, user);
       return withCors(response, request, env);
     } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
       console.error('API Error:', error);
       return withCors(
-        errorResponse(ErrorCode.VALIDATION_ERROR, '服务器内部错误', 500),
+        errorResponse(ErrorCode.VALIDATION_ERROR, `服务器内部错误: ${detail}`, 500),
         request,
         env
       );
