@@ -1,6 +1,6 @@
 // lib/crypto.ts — PBKDF2 密码哈希（Web Crypto API 内置，零外部依赖）
 
-const ITERATIONS = 600000;
+const ITERATIONS = 100000;
 const HASH_ALGO = 'SHA-256';
 const SALT_LENGTH = 16;
 const KEY_LENGTH = 256;
