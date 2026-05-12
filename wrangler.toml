@@ -13,7 +13,7 @@ database_id = "bb73bd88-95f9-4c4f-af08-871df6bf3286"
 [vars]
 PUBLIC_URL = "https://guestbook.17you.com"
 SITE_NAME = "自游人留言板"
-ALLOWED_ORIGINS = "https://www.17you.com,https://guestbook.17you.com,https://pinglun-9ve.pages.dev"
+ALLOWED_ORIGINS = "https://www.17you.com,https://guestbook.17you.com,https://pinglun-9ve.pages.dev,http://localhost:1313"
 EMAIL_DOMAIN = "17you.com"
 EMAIL_FROM_NAME = "自游人 17you.com"
 TURNSTILE_SITE_KEY = "0x4AAAAAADKEiieQVd99LXKI"
