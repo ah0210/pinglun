@@ -22,7 +22,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Set-Cookie': 'refresh_token=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth; Max-Age=0',
+      'Set-Cookie': 'refresh_token=; HttpOnly; Secure; SameSite=None; Path=/api/v1/auth; Max-Age=0',
     },
   });
 }, { requireAuth: true });
