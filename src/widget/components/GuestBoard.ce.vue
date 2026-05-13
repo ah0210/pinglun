@@ -42,7 +42,7 @@
       :site-key="resolvedSiteKey"
       :min-length="minLength"
       :max-length="maxLength"
-      :require-captcha="config?.requireCaptcha !== false"
+      :require-captcha="effectiveRequireCaptcha"
       :messages="messages"
       :current-user="auth.user.value"
     />
@@ -57,7 +57,7 @@
       :min-length="minLength"
       :max-length="maxLength"
       :site-key="resolvedSiteKey"
-      :require-captcha="config?.requireCaptcha !== false"
+      :require-captcha="effectiveRequireCaptcha"
     />
 
     <!-- 加载更多 -->
@@ -80,6 +80,7 @@
       ref="authModalRef"
       :site-key="resolvedSiteKey"
       :theme="effectiveTheme"
+      :force-skip-turnstile="!!config?.forceSkipTurnstile"
       @close="onAuthModalClose"
     />
   </div>
@@ -119,6 +120,10 @@ initAuth(resolvedApiBase.value);
 const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.siteKey || '');
 const maxLength = computed(() => config.value?.maxMessageLength || props.maxLength || 500);
 const minLength = computed(() => config.value?.minMessageLength || 2);
+// 紧急降级模式下不渲染验证码（forceSkipTurnstile 开启或未配置 siteKey 时跳过）
+const effectiveRequireCaptcha = computed(() =>
+  config.value?.requireCaptcha !== false && !config.value?.forceSkipTurnstile
+);
 
 const { effectiveTheme } = useTheme(props.theme || 'auto');
 

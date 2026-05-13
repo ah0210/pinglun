@@ -165,6 +165,7 @@ export type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-pa
 const props = defineProps<{
   siteKey: string;
   theme?: 'light' | 'dark' | 'auto';
+  forceSkipTurnstile?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -408,6 +409,12 @@ let turnstileWidgetId: string | null = null;
 
 function renderTurnstile(action: string): Promise<string> {
   return new Promise((resolve) => {
+    // 紧急降级模式下跳过 Turnstile 渲染
+    if (props.forceSkipTurnstile) {
+      resolve('');
+      return;
+    }
+
     const turnstile = (window as any).turnstile;
     if (!turnstile) {
       console.warn('[Guestbook] Turnstile JS not loaded, skipping captcha');

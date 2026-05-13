@@ -40,6 +40,8 @@ export interface BoardConfig {
   moderationEnabled: boolean;
   dailySecretLimit: number;
   allowRegistration: boolean;
+  requireEmailVerification: boolean;
+  forceSkipTurnstile: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -97,6 +99,8 @@ export interface AdminConfig {
   moderationEnabled: boolean;
   dailySecretLimit: number;
   allowRegistration: boolean;
+  requireEmailVerification: boolean;
+  forceSkipTurnstile: boolean;
   updatedAt: string;
 }
 

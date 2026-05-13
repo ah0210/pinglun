@@ -28,6 +28,15 @@
           <n-switch v-model:value="config.allowRegistration" />
           <span style="margin-left: 8px; color: #999">{{ config.allowRegistration ? '开放注册' : '关闭注册' }}</span>
         </n-form-item>
+        <n-form-item label="邮箱验证">
+          <n-switch v-model:value="config.requireEmailVerification" />
+          <span style="margin-left: 8px; color: #999">{{ config.requireEmailVerification ? '必须验证邮箱才能留言' : '免验证即可留言' }}</span>
+        </n-form-item>
+        <n-form-item label="🚨 跳过验证码">
+          <n-switch v-model:value="config.forceSkipTurnstile" />
+          <span style="margin-left: 8px; color: #999">{{ config.forceSkipTurnstile ? '紧急降级中' : '正常模式' }}</span>
+          <n-tag v-if="config.forceSkipTurnstile" type="warning" style="margin-left: 8px">⚠️ 仅在 Turnstile 宕机时临时开启</n-tag>
+        </n-form-item>
         <n-form-item>
           <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
         </n-form-item>
@@ -38,7 +47,7 @@
 
 <script lang="ts" setup>
 import { reactive, ref, onMounted } from 'vue';
-import { NH2, NCard, NForm, NFormItem, NInput, NInputNumber, NSwitch, NButton, useMessage } from 'naive-ui';
+import { NH2, NCard, NForm, NFormItem, NInput, NInputNumber, NSwitch, NButton, NTag, useMessage } from 'naive-ui';
 import { useAuthStore } from '../stores/auth';
 import type { AdminConfig } from '../../shared/types';
 
@@ -54,6 +63,8 @@ const config = reactive<AdminConfig>({
   moderationEnabled: false,
   dailySecretLimit: 5,
   allowRegistration: true,
+  requireEmailVerification: true,
+  forceSkipTurnstile: false,
   updatedAt: '',
 });
 

@@ -74,6 +74,8 @@ export interface DbBoardConfig {
   moderation_enabled: number;
   daily_secret_limit: number;
   allow_registration: number;
+  require_email_verification: number;
+  force_skip_turnstile: number;
   updated_at: string;
 }
 

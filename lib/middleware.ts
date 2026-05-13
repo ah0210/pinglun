@@ -86,8 +86,19 @@ export function apiHandler(
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       console.error('API Error:', error);
+
+      // D1 写入瓶颈（SQLITE_BUSY / database is locked）— 返回友好提示
+      if (detail.includes('SQLITE_BUSY') || detail.includes('database is locked')) {
+        return withCors(
+          errorResponse(ErrorCode.DB_BUSY, '系统繁忙，请稍后重试', 503),
+          request,
+          env
+        );
+      }
+
+      // 其他错误 — 不暴露内部细节（防止 SQL 语句/表名泄露）
       return withCors(
-        errorResponse(ErrorCode.VALIDATION_ERROR, `服务器内部错误: ${detail}`, 500),
+        errorResponse(ErrorCode.VALIDATION_ERROR, '服务器内部错误', 500),
         request,
         env
       );

@@ -68,15 +68,17 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- 留言板配置表（单行配置）
 CREATE TABLE IF NOT EXISTS board_config (
-  id                   INTEGER PRIMARY KEY CHECK (id = 1),
-  site_name            TEXT DEFAULT '留言板',
-  min_message_length   INTEGER DEFAULT 2,
-  max_message_length   INTEGER DEFAULT 500,
-  require_captcha      INTEGER DEFAULT 1,
-  moderation_enabled   INTEGER DEFAULT 0,
-  daily_secret_limit   INTEGER DEFAULT 5,
-  allow_registration   INTEGER DEFAULT 1,
-  updated_at           TEXT DEFAULT (datetime('now'))
+  id                        INTEGER PRIMARY KEY CHECK (id = 1),
+  site_name                 TEXT DEFAULT '留言板',
+  min_message_length        INTEGER DEFAULT 2,
+  max_message_length        INTEGER DEFAULT 500,
+  require_captcha           INTEGER DEFAULT 1,
+  moderation_enabled        INTEGER DEFAULT 0,
+  daily_secret_limit        INTEGER DEFAULT 5,
+  allow_registration        INTEGER DEFAULT 1,
+  require_email_verification INTEGER DEFAULT 1,
+  force_skip_turnstile      INTEGER DEFAULT 0,
+  updated_at                TEXT DEFAULT (datetime('now'))
 );
 
 -- 管理员操作日志表

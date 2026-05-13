@@ -17,6 +17,17 @@ export function isTurnstileConfigured(secretKey: string): boolean {
   return !!secretKey && !TEST_SECRET_KEYS.has(secretKey);
 }
 
+/**
+ * 检查是否应该跳过 Turnstile 验证
+ * - 未配置 secretKey → 跳过
+ * - forceSkipTurnstile 开关打开 → 跳过（紧急降级，由管理员在后台开启）
+ */
+export function shouldSkipTurnstile(secretKey: string, forceSkip?: boolean): boolean {
+  if (!isTurnstileConfigured(secretKey)) return true;
+  if (forceSkip) return true;
+  return false;
+}
+
 export async function verifyTurnstile(token: string, secretKey: string, remoteIp?: string): Promise<boolean> {
   // 未配置 secret key 或使用测试密钥时自动通过
   if (!secretKey || TEST_SECRET_KEYS.has(secretKey)) {

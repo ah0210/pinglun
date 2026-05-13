@@ -35,6 +35,7 @@ export enum ErrorCode {
   EMAIL_SEND_FAILED = 9003,
   RATE_LIMITED = 9004,
   SETUP_ALREADY_DONE = 9005,
+  DB_BUSY = 9006,
 }
 
 export function errorResponse(code: ErrorCode, message: string, status: number): Response {

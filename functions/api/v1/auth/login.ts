@@ -1,7 +1,7 @@
 // functions/api/v1/auth/login.ts — 用户登录（返回双 Token）
 import { apiHandler } from '../../../../lib/middleware';
 import { verifyPassword } from '../../../../lib/crypto';
-import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
+import { verifyTurnstile, shouldSkipTurnstile } from '../../../../lib/turnstile';
 import { signAccessToken, generateToken, hashToken, getRefreshTokenExpiry } from '../../../../lib/jwt';
 import { getAvatarUrl } from '../../../../lib/avatar';
 import { ErrorCode, errorResponse } from '../../../../lib/response';
@@ -40,8 +40,11 @@ export const onRequestPost = apiHandler(async (request, env) => {
     return errorResponse(ErrorCode.RATE_LIMITED, `登录失败次数过多，请 ${remaining} 秒后重试`, 429);
   }
 
-  // Turnstile 验证（未配置时跳过）
-  if (isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
+  // Turnstile 验证（未配置、测试密钥或管理员开启紧急降级时跳过）
+  const turnstileConfig = await env.DB.prepare(
+    'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
+  ).first<{ force_skip_turnstile: number }>();
+  if (!shouldSkipTurnstile(env.TURNSTILE_SECRET_KEY || '', turnstileConfig?.force_skip_turnstile === 1)) {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }

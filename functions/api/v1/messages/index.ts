@@ -1,6 +1,6 @@
 // functions/api/v1/messages/index.ts — 留言列表 + 提交留言
 import { apiHandler } from '../../../../lib/middleware';
-import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
+import { verifyTurnstile, shouldSkipTurnstile } from '../../../../lib/turnstile';
 import { escapeHtml } from '../../../../lib/sanitize';
 import { noCacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse, cursorPaginatedResponse } from '../../../../lib/response';
@@ -135,13 +135,19 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.UNAUTHORIZED, '请先登录', 401);
   }
 
-  // 邮箱验证检查（管理员豁免）
+  // 邮箱验证检查（管理员豁免；require_email_verification 开关可由管理员关闭用于紧急降级）
   if (user.role !== 'admin') {
     const dbUser = await env.DB.prepare(
       'SELECT email_verified FROM users WHERE id = ?'
     ).bind(user.userId).first<{ email_verified: number }>();
     if (dbUser && !dbUser.email_verified) {
-      return errorResponse(ErrorCode.EMAIL_NOT_VERIFIED, '请先验证邮箱后再留言', 403);
+      // 检查是否开启了邮箱验证要求
+      const emailConfig = await env.DB.prepare(
+        'SELECT require_email_verification FROM board_config WHERE id = 1'
+      ).first<{ require_email_verification: number }>();
+      if (!emailConfig || emailConfig.require_email_verification) {
+        return errorResponse(ErrorCode.EMAIL_NOT_VERIFIED, '请先验证邮箱后再留言', 403);
+      }
     }
   }
 
@@ -172,8 +178,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 获取配置
   const config = await env.DB.prepare(
-    'SELECT min_message_length, max_message_length, require_captcha, daily_secret_limit, moderation_enabled FROM board_config WHERE id = 1'
-  ).first<{ min_message_length: number; max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number }>();
+    'SELECT min_message_length, max_message_length, require_captcha, daily_secret_limit, moderation_enabled, force_skip_turnstile FROM board_config WHERE id = 1'
+  ).first<{ min_message_length: number; max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number; force_skip_turnstile: number }>();
 
   const minLength = config?.min_message_length || 2;
   const maxLength = config?.max_message_length || 500;
@@ -191,8 +197,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.MESSAGE_REPEATED_CHARS, '留言不能包含过多连续重复字符', 400);
   }
 
-  // 验证码检查（未配置 Turnstile 时跳过）
-  if (config?.require_captcha && isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
+  // 验证码检查（未配置 Turnstile 或管理员开启紧急降级时跳过）
+  if (config?.require_captcha && !shouldSkipTurnstile(env.TURNSTILE_SECRET_KEY || '', config?.force_skip_turnstile === 1)) {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }

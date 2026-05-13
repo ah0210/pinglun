@@ -1,7 +1,7 @@
 // functions/api/v1/auth/register.ts — 用户注册
 import { apiHandler } from '../../../../lib/middleware';
 import { hashPassword } from '../../../../lib/crypto';
-import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstile';
+import { verifyTurnstile, shouldSkipTurnstile } from '../../../../lib/turnstile';
 import { sendEmail, buildVerifyEmailHtml } from '../../../../lib/email';
 import { signAccessToken, generateToken, hashToken, getRefreshTokenExpiry } from '../../../../lib/jwt';
 import { getAvatarUrl } from '../../../../lib/avatar';
@@ -23,8 +23,11 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写所有必填字段', 400);
   }
 
-  // Turnstile 验证（未配置或测试密钥时跳过）
-  if (isTurnstileConfigured(env.TURNSTILE_SECRET_KEY || '')) {
+  // Turnstile 验证（未配置、测试密钥或管理员开启紧急降级时跳过）
+  const turnstileConfig = await env.DB.prepare(
+    'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
+  ).first<{ force_skip_turnstile: number }>();
+  if (!shouldSkipTurnstile(env.TURNSTILE_SECRET_KEY || '', turnstileConfig?.force_skip_turnstile === 1)) {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }

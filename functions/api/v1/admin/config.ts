@@ -21,6 +21,8 @@ export const onRequestGet = apiHandler(async (request, env) => {
     moderationEnabled: config.moderation_enabled === 1,
     dailySecretLimit: config.daily_secret_limit,
     allowRegistration: config.allow_registration === 1,
+    requireEmailVerification: config.require_email_verification === 1,
+    forceSkipTurnstile: config.force_skip_turnstile === 1,
     updatedAt: config.updated_at,
   }, noCacheHeaders());
 }, { requireAdmin: true });
@@ -35,6 +37,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     moderationEnabled?: boolean;
     dailySecretLimit?: number;
     allowRegistration?: boolean;
+    requireEmailVerification?: boolean;
+    forceSkipTurnstile?: boolean;
   };
 
   const updates: string[] = [];
@@ -67,6 +71,14 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   if (body.allowRegistration !== undefined) {
     updates.push('allow_registration = ?');
     binds.push(body.allowRegistration ? 1 : 0);
+  }
+  if (body.requireEmailVerification !== undefined) {
+    updates.push('require_email_verification = ?');
+    binds.push(body.requireEmailVerification ? 1 : 0);
+  }
+  if (body.forceSkipTurnstile !== undefined) {
+    updates.push('force_skip_turnstile = ?');
+    binds.push(body.forceSkipTurnstile ? 1 : 0);
   }
 
   if (updates.length === 0) {
