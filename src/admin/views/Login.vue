@@ -63,7 +63,7 @@ async function handleLogin() {
           sitekey: turnstileSiteKey.value,
           callback: (token: string) => resolve(token),
           'error-callback': () => resolve(''),
-          size: 'invisible',
+          size: 'compact',
         });
       });
     }

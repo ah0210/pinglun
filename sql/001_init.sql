@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   username        TEXT UNIQUE NOT NULL,
   display_name    TEXT DEFAULT '',
   email           TEXT UNIQUE NOT NULL,
+  phone           TEXT DEFAULT '' UNIQUE,
   email_verified  INTEGER DEFAULT 0,
   email_verified_at TEXT DEFAULT NULL,
   password_hash   TEXT NOT NULL,
@@ -109,6 +110,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_reply ON messages(reply_to);
 CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
 CREATE INDEX IF NOT EXISTS idx_messages_page_status ON messages(page_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);

@@ -61,12 +61,13 @@ export function useAuth() {
     }
   }
 
-  async function register(username: string, email: string, password: string, turnstileToken: string) {
+  async function register(username: string, email: string, phone: string, password: string, turnstileToken: string) {
     loading.value = true;
     try {
       const resp = await apiPost<{ accessToken: string; user: PublicUser }>(_apiBase, '/auth/register', {
         username,
         email,
+        phone,
         password,
         turnstileToken,
       });

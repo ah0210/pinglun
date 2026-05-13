@@ -5,7 +5,7 @@ import { verifyTurnstile, isTurnstileConfigured } from '../../../../lib/turnstil
 import { sendEmail, buildVerifyEmailHtml } from '../../../../lib/email';
 import { signAccessToken, generateToken, hashToken, getRefreshTokenExpiry } from '../../../../lib/jwt';
 import { getAvatarUrl } from '../../../../lib/avatar';
-import { escapeHtml, sanitizeUsername, sanitizeEmail, validatePasswordStrength } from '../../../../lib/sanitize';
+import { escapeHtml, sanitizeUsername, sanitizeEmail, validatePasswordStrength, validateEmail, validatePhone } from '../../../../lib/sanitize';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
 import type { Env, DbUser } from '../../../../lib/types';
 
@@ -13,12 +13,13 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
   const body = await request.json() as {
     username: string;
     email: string;
+    phone: string;
     password: string;
     turnstileToken: string;
   };
 
   // 验证必填字段
-  if (!body.username || !body.email || !body.password) {
+  if (!body.username || !body.email || !body.phone || !body.password) {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '请填写所有必填字段', 400);
   }
 
@@ -35,6 +36,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
 
   const username = sanitizeUsername(body.username);
   const email = sanitizeEmail(body.email);
+  const phone = body.phone.trim();
   const password = body.password;
 
   // 验证用户名格式
@@ -48,9 +50,16 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     return errorResponse(ErrorCode.VALIDATION_ERROR, passwordError, 400);
   }
 
-  // 验证邮箱格式
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return errorResponse(ErrorCode.VALIDATION_ERROR, '邮箱格式不正确', 400);
+  // 严格验证邮箱格式
+  const emailError = validateEmail(email);
+  if (emailError) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, emailError, 400);
+  }
+
+  // 严格验证手机号格式
+  const phoneError = validatePhone(phone);
+  if (phoneError) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, phoneError, 400);
   }
 
   // 检查注册开关
@@ -59,12 +68,12 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     return errorResponse(ErrorCode.REGISTRATION_DISABLED, '注册功能已关闭', 403);
   }
 
-  // 检查用户名/邮箱是否已存在
+  // 检查用户名/邮箱/手机号是否已存在
   const existing = await env.DB.prepare(
-    'SELECT id FROM users WHERE username = ? OR email = ?'
-  ).bind(username, email).first();
+    'SELECT id FROM users WHERE username = ? OR email = ? OR phone = ?'
+  ).bind(username, email, phone).first();
   if (existing) {
-    return errorResponse(ErrorCode.USERNAME_TAKEN, '用户名或邮箱已被注册', 409);
+    return errorResponse(ErrorCode.USERNAME_TAKEN, '用户名、邮箱或手机号已被注册', 409);
   }
 
   // 创建用户
@@ -72,8 +81,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
   const avatar = getAvatarUrl(email);
 
   const result = await env.DB.prepare(
-    `INSERT INTO users (username, email, password_hash, avatar) VALUES (?, ?, ?, ?)`
-  ).bind(username, email, passwordHash, avatar).run();
+    `INSERT INTO users (username, email, phone, password_hash, avatar) VALUES (?, ?, ?, ?, ?)`
+  ).bind(username, email, phone, passwordHash, avatar).run();
 
   const userId = result.meta.last_row_id as number;
 
@@ -130,6 +139,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
         username: user!.username,
         displayName: user!.display_name || user!.username,
         email: user!.email,
+        phone: user!.phone,
         emailVerified: user!.email_verified === 1,
         avatar: user!.avatar,
         role,

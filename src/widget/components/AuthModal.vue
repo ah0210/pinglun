@@ -28,22 +28,25 @@
         <!-- 注册 -->
         <form v-if="mode === 'register'" @submit.prevent="handleRegister">
           <h3 class="gb-modal-title">注册</h3>
-          <div class="gb-field">
+          <div class="gb-field-row">
             <label class="gb-label" :for="`${instanceId}-username`">用户名</label>
-            <input v-model="form.username" class="gb-input" type="text" required autocomplete="username" :id="`${instanceId}-username`" />
+            <input v-model="form.username" class="gb-input" type="text" required autocomplete="username" :id="`${instanceId}-username`" placeholder="2-30位，中英文/数字/下划线" />
           </div>
-          <div class="gb-field">
+          <div class="gb-field-row">
             <label class="gb-label" :for="`${instanceId}-reg-email`">邮箱</label>
-            <input v-model="form.email" class="gb-input" type="email" required autocomplete="email" :id="`${instanceId}-reg-email`" />
+            <input v-model="form.email" class="gb-input" type="email" required autocomplete="email" :id="`${instanceId}-reg-email`" placeholder="example@domain.com" />
           </div>
-          <div class="gb-field">
+          <div class="gb-field-row">
+            <label class="gb-label" :for="`${instanceId}-reg-phone`">手机号</label>
+            <input v-model="form.phone" class="gb-input" type="tel" required autocomplete="tel" :id="`${instanceId}-reg-phone`" maxlength="11" placeholder="中国大陆11位手机号" />
+          </div>
+          <div class="gb-field-row">
             <label class="gb-label" :for="`${instanceId}-reg-password`">密码</label>
-            <input v-model="form.password" class="gb-input" type="password" required minlength="8" autocomplete="new-password" :id="`${instanceId}-reg-password`" />
-            <div class="gb-hint">至少 8 个字符，需包含字母和数字</div>
+            <input v-model="form.password" class="gb-input" type="password" required minlength="8" autocomplete="new-password" :id="`${instanceId}-reg-password`" placeholder="8-20位，含字母和数字" />
           </div>
-          <div class="gb-field">
+          <div class="gb-field-row">
             <label class="gb-label" :for="`${instanceId}-confirm-password`">确认密码</label>
-            <input v-model="form.confirmPassword" class="gb-input" type="password" required autocomplete="new-password" :id="`${instanceId}-confirm-password`" />
+            <input v-model="form.confirmPassword" class="gb-input" type="password" required autocomplete="new-password" :id="`${instanceId}-confirm-password`" placeholder="再次输入密码" />
           </div>
           <div v-if="error" class="gb-error">{{ error }}</div>
           <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
@@ -180,6 +183,7 @@ const form = ref({
   login: '',
   username: '',
   email: '',
+  phone: '',
   password: '',
   confirmPassword: '',
   currentPassword: '',
@@ -242,6 +246,9 @@ const modalCSS = `
 .gb-modal-title { font-size: 18px; font-weight: 600; margin: 0 0 20px; color: var(--gb-text, #333); }
 .gb-modal-desc { font-size: 13px; color: var(--gb-text-secondary, #666); margin: 0 0 16px; line-height: 1.5; }
 .gb-field { margin-bottom: 14px; }
+.gb-field-row { display: flex; align-items: center; margin-bottom: 14px; gap: 10px; }
+.gb-field-row .gb-label { flex-shrink: 0; width: 70px; text-align: right; margin-bottom: 0; }
+.gb-field-row .gb-input { flex: 1; min-width: 0; }
 .gb-label { display: block; font-size: 13px; margin-bottom: 4px; color: var(--gb-text-secondary, #666); }
 .gb-input {
   width: 100%; padding: 8px 12px;
@@ -279,6 +286,8 @@ const modalCSS = `
   .gb-modal { padding: 20px 16px; max-height: 95vh; border-radius: var(--gb-border-radius, 8px) var(--gb-border-radius, 8px) 0 0; }
   .gb-modal-title { font-size: 16px; padding-right: 36px; }
   .gb-modal-links { flex-direction: column; gap: 8px; align-items: center; }
+  .gb-field-row { flex-direction: column; align-items: stretch; }
+  .gb-field-row .gb-label { width: auto; text-align: left; }
 }
 /* 桌面端 hover 效果 */
 @media (hover: hover) {
@@ -369,6 +378,7 @@ function resetForm() {
     login: '',
     username: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     currentPassword: '',
@@ -482,6 +492,29 @@ async function handleLogin() {
 
 async function handleRegister() {
   error.value = '';
+
+  // 验证用户名
+  const username = form.value.username.trim();
+  if (username.length < 2 || username.length > 30) {
+    error.value = '用户名长度需在 2-30 之间';
+    return;
+  }
+
+  // 严格验证邮箱
+  const email = form.value.email.trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    error.value = '邮箱格式不正确';
+    return;
+  }
+
+  // 严格验证手机号（中国大陆格式：1开头，第二位3-9，共11位）
+  const phone = form.value.phone.trim();
+  if (!/^1[3-9]\d{9}$/.test(phone)) {
+    error.value = '手机号格式不正确（需为中国大陆11位手机号）';
+    return;
+  }
+
+  // 验证密码
   if (form.value.password !== form.value.confirmPassword) {
     error.value = '两次输入的密码不一致';
     return;
@@ -494,8 +527,9 @@ async function handleRegister() {
     error.value = '密码需包含字母和数字';
     return;
   }
+
   const turnstileToken = await renderTurnstile('register');
-  const result = await auth.register(form.value.username, form.value.email, form.value.password, turnstileToken);
+  const result = await auth.register(form.value.username, form.value.email, form.value.phone, form.value.password, turnstileToken);
   if (!result.success) {
     error.value = result.error?.message || '注册失败';
     removeTurnstileContainer();
@@ -706,6 +740,25 @@ defineExpose({ open, close });
 
 .gb-field { margin-bottom: 14px; }
 
+.gb-field-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  gap: 10px;
+}
+
+.gb-field-row .gb-label {
+  flex-shrink: 0;
+  width: 70px;
+  text-align: right;
+  margin-bottom: 0;
+}
+
+.gb-field-row .gb-input {
+  flex: 1;
+  min-width: 0;
+}
+
 .gb-label {
   display: block;
   font-size: 13px;
@@ -815,6 +868,14 @@ defineExpose({ open, close });
     flex-direction: column;
     gap: 8px;
     align-items: center;
+  }
+  .gb-field-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .gb-field-row .gb-label {
+    width: auto;
+    text-align: left;
   }
 }
 

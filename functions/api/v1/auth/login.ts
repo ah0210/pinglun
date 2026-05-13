@@ -51,10 +51,10 @@ export const onRequestPost = apiHandler(async (request, env) => {
     }
   }
 
-  // 查找用户（用户名或邮箱）
+  // 查找用户（用户名、邮箱或手机号）
   const user = await env.DB.prepare(
-    'SELECT * FROM users WHERE (username = ? OR email = ?) AND status = ?'
-  ).bind(body.login.trim().toLowerCase(), body.login.trim().toLowerCase(), 'active').first<DbUser>();
+    'SELECT * FROM users WHERE (username = ? OR email = ? OR phone = ?) AND status = ?'
+  ).bind(body.login.trim().toLowerCase(), body.login.trim().toLowerCase(), body.login.trim(), 'active').first<DbUser>();
 
   if (!user) {
     await recordFailedAttempt(env, clientIP);
@@ -116,6 +116,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
         username: user.username,
         displayName: user.display_name || user.username,
         email: user.email,
+        phone: user.phone,
         avatar,
         role: user.role,
         emailVerified: user.email_verified === 1,

@@ -21,6 +21,7 @@ export interface DbUser {
   username: string;
   display_name: string;
   email: string;
+  phone: string;
   email_verified: number;
   password_hash: string;
   role: string;
@@ -93,6 +94,7 @@ export interface PublicUser {
   username: string;
   displayName: string;
   email?: string;
+  phone?: string;
   emailVerified?: boolean;
   avatar: string;
   role: string;
@@ -132,6 +134,7 @@ export interface JwtPayload {
 export interface RegisterBody {
   username: string;
   email: string;
+  phone: string;
   password: string;
   turnstileToken: string;
 }
@@ -173,6 +176,7 @@ export function toPublicUser(u: DbUser): PublicUser {
     id: u.id,
     username: u.username,
     displayName: u.display_name || u.username,
+    phone: u.phone,
     avatar: u.avatar,
     role: u.role,
     bio: u.bio,
