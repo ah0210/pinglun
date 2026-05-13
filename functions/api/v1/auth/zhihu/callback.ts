@@ -25,10 +25,10 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
     return redirectToLogin(env, `oauth_error=${encodeURIComponent(errorDesc)}`);
   }
 
-  // 2. 验证 code 参数
-  const code = url.searchParams.get('code');
+  // 2. 验证 authorization_code 参数（知乎黑客松 OAuth 回调参数名为 authorization_code，而非 code）
+  const code = url.searchParams.get('authorization_code') || url.searchParams.get('code');
   if (!code) {
-    console.error('[知乎 OAuth 回调] 缺少 code 参数，收到的参数:', Object.fromEntries(url.searchParams.entries()));
+    console.error('[知乎 OAuth 回调] 缺少 authorization_code 参数，收到的参数:', Object.fromEntries(url.searchParams.entries()));
     return redirectToLogin(env, `oauth_error=missing_code&debug_url=${encodeURIComponent(request.url)}`);
   }
 
