@@ -118,6 +118,8 @@
       font-size: 13px;
       margin-bottom: 16px;
       display: none;
+      white-space: pre-wrap;
+      word-break: break-all;
     }
     .error-msg.show { display: block; }
     .success-area {
@@ -272,7 +274,12 @@
         // 检查 OAuth 错误
         var oauthError = params.get('oauth_error');
         if (oauthError) {
-          showError(decodeURIComponent(oauthError));
+          var debugUrl = params.get('debug_url');
+          var errorMsg = decodeURIComponent(oauthError);
+          if (debugUrl) {
+            errorMsg += '\n\n调试信息: ' + decodeURIComponent(debugUrl);
+          }
+          showError(errorMsg);
           cleanHash();
           return;
         }

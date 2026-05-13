@@ -24,6 +24,10 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
     state,
   });
 
+  console.log('[知乎 OAuth 发起] PUBLIC_URL:', env.PUBLIC_URL);
+  console.log('[知乎 OAuth 发起] redirect_uri:', redirectUri);
+  console.log('[知乎 OAuth 发起] authorize_url:', authorizeUrl);
+
   // 将 redirect 地址编码后存入 Cookie，回调时读取
   const stateData = JSON.stringify({ s: state, r: redirect });
   const encodedStateData = btoa(unescape(encodeURIComponent(stateData)));

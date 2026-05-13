@@ -12,17 +12,24 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
   const { request, env } = context;
   const url = new URL(request.url);
 
+  // 调试：记录知乎回调的完整 URL 和参数
+  console.log('[知乎 OAuth 回调] 完整 URL:', request.url);
+  console.log('[知乎 OAuth 回调] search params:', Object.fromEntries(url.searchParams.entries()));
+  console.log('[知乎 OAuth 回调] Cookie:', request.headers.get('Cookie') || '(none)');
+
   // 1. 检查知乎是否返回了错误（用户拒绝授权等）
   const errorParam = url.searchParams.get('error');
   if (errorParam) {
     const errorDesc = url.searchParams.get('error_description') || '授权失败';
+    console.error('[知乎 OAuth 回调] 知乎返回错误:', errorParam, errorDesc);
     return redirectToLogin(env, `oauth_error=${encodeURIComponent(errorDesc)}`);
   }
 
   // 2. 验证 code 参数
   const code = url.searchParams.get('code');
   if (!code) {
-    return redirectToLogin(env, 'oauth_error=missing_code');
+    console.error('[知乎 OAuth 回调] 缺少 code 参数，收到的参数:', Object.fromEntries(url.searchParams.entries()));
+    return redirectToLogin(env, `oauth_error=missing_code&debug_url=${encodeURIComponent(request.url)}`);
   }
 
   // 3. 验证 state 参数（CSRF 防护）+ 从 Cookie 中读取 redirect 地址
