@@ -21,7 +21,7 @@
           </button>
           <div class="gb-divider"><span>或</span></div>
           <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
-            <img class="gb-zhihu-icon" src="/https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
+            <img class="gb-zhihu-icon" src="https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
             知乎登录
           </button>
           <div class="gb-modal-links">
@@ -59,7 +59,7 @@
           </button>
           <div class="gb-divider"><span>或</span></div>
           <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
-            <img class="gb-zhihu-icon" src="/https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
+            <img class="gb-zhihu-icon" src="https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
             知乎登录
           </button>
           <div class="gb-modal-links">
