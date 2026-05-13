@@ -44,16 +44,33 @@ export async function exchangeCodeForToken(params: {
     code,
   });
 
+  console.log('[知乎 Token 交换] 请求 URL:', `${ZHIHU_BASE_URL}/access_token`);
+  console.log('[知乎 Token 交换] 请求参数:', { app_id: appId, grant_type: 'authorization_code', redirect_uri: redirectUri, code: code.substring(0, 8) + '...' });
+
   const resp = await fetch(`${ZHIHU_BASE_URL}/access_token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
   });
 
-  const data = await resp.json() as ZhihuTokenResponse | ZhihuErrorResponse;
+  const rawText = await resp.text();
+  console.log('[知乎 Token 交换] HTTP 状态:', resp.status);
+  console.log('[知乎 Token 交换] 原始响应:', rawText);
 
-  if ('code' in data && data.code) {
-    throw new Error(`知乎 Token 交换失败: ${(data as ZhihuErrorResponse).data}`);
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`知乎 Token 交换失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
+  }
+
+  if (!resp.ok || data.code) {
+    const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
+    throw new Error(`知乎 Token 交换失败 (${data.code || resp.status}): ${errMsg}`);
+  }
+
+  if (!data.access_token) {
+    throw new Error(`知乎 Token 交换失败: 响应缺少 access_token, 完整响应: ${rawText.substring(0, 300)}`);
   }
 
   return data as ZhihuTokenResponse;
@@ -61,14 +78,30 @@ export async function exchangeCodeForToken(params: {
 
 /** 使用 access_token 获取知乎用户信息 */
 export async function fetchZhihuUser(accessToken: string): Promise<ZhihuUserInfo> {
+  console.log('[知乎用户信息] 请求 URL:', `${ZHIHU_BASE_URL}/user`);
+
   const resp = await fetch(`${ZHIHU_BASE_URL}/user`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  const data = await resp.json() as ZhihuUserInfo | ZhihuErrorResponse;
+  const rawText = await resp.text();
+  console.log('[知乎用户信息] HTTP 状态:', resp.status);
+  console.log('[知乎用户信息] 原始响应:', rawText);
 
-  if ('code' in data && data.code) {
-    throw new Error(`知乎用户信息获取失败: ${(data as ZhihuErrorResponse).data}`);
+  let data: any;
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    throw new Error(`知乎用户信息获取失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
+  }
+
+  if (!resp.ok || data.code) {
+    const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
+    throw new Error(`知乎用户信息获取失败 (${data.code || resp.status}): ${errMsg}`);
+  }
+
+  if (!data.uid) {
+    throw new Error(`知乎用户信息获取失败: 响应缺少 uid, 完整响应: ${rawText.substring(0, 300)}`);
   }
 
   return data as ZhihuUserInfo;
