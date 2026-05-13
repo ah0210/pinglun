@@ -1,4 +1,4 @@
-// functions/api/v1/admin/users/[id].ts — 变更用户角色/状态
+// functions/api/v1/admin/users/[id].ts — 变更用户角色/状态、删除用户
 import { apiHandler, getClientIp } from '../../../../../lib/middleware';
 import { logAdminAction } from '../../../../../lib/admin-log';
 import { ErrorCode, errorResponse, successResponse } from '../../../../../lib/response';
@@ -63,4 +63,43 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
   );
 
   return successResponse({ id, role: body.role || dbUser.role, status: body.status || dbUser.status });
+}, { requireAdmin: true });
+
+/**
+ * 删除非管理员用户
+ * 请求方式: DELETE /api/v1/admin/users/:id
+ * 限制: 不能删除管理员、不能删除自己
+ * 逻辑: 先删该用户的留言，再删用户，记录操作日志
+ */
+export const onRequestDelete = apiHandler(async (request, env, ctx, user) => {
+  const rawId = Array.isArray(ctx.params.id) ? ctx.params.id[0] : ctx.params.id;
+  const id = parseInt(rawId, 10);
+
+  if (id === user!.userId) {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '不能删除自己', 400);
+  }
+
+  const dbUser = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).first<DbUser>();
+  if (!dbUser) {
+    return errorResponse(ErrorCode.USER_NOT_FOUND, '用户不存在', 404);
+  }
+
+  if (dbUser.role === 'admin') {
+    return errorResponse(ErrorCode.VALIDATION_ERROR, '不能删除管理员用户', 400);
+  }
+
+  // 先删除该用户的留言
+  await env.DB.prepare('DELETE FROM messages WHERE user_id = ?').bind(id).run();
+
+  // 再删除用户
+  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(id).run();
+
+  await logAdminAction(
+    env, user!.userId, 'delete_user',
+    'user', id,
+    JSON.stringify({ username: dbUser.username, email: dbUser.email }),
+    getClientIp(request)
+  );
+
+  return successResponse({ id, message: '用户已删除' });
 }, { requireAdmin: true });

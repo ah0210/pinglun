@@ -5,6 +5,7 @@ export interface PublicUser {
   username: string;
   displayName: string;
   email?: string;        // 仅在自身信息接口（/auth/me, /auth/login 等）中返回
+  phone?: string;        // 手机号，管理后台用户列表中返回
   emailVerified?: boolean;  // 仅在自身信息接口中返回
   avatar: string;
   role: string;

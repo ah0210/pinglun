@@ -25,8 +25,8 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     binds.push(status);
   }
   if (search) {
-    whereClause += ' AND (username LIKE ? OR email LIKE ? OR display_name LIKE ?)';
-    binds.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    whereClause += ' AND (username LIKE ? OR email LIKE ? OR display_name LIKE ? OR phone LIKE ?)';
+    binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
   }
 
   const countResult = await env.DB.prepare(
@@ -34,7 +34,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   ).bind(...binds).first<{ total: number }>();
 
   const users = await env.DB.prepare(
-    `SELECT id, username, display_name, email, email_verified, email_verified_at, role, avatar, bio, status, last_login_at, created_at
+    `SELECT id, username, display_name, email, phone, email_verified, email_verified_at, role, avatar, bio, status, last_login_at, created_at
      FROM users ${whereClause}
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`
@@ -45,6 +45,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     username: u.username,
     displayName: u.display_name || u.username,
     email: u.email,
+    phone: u.phone || '',
     emailVerified: u.email_verified === 1,
     emailVerifiedAt: u.email_verified_at,
     avatar: u.avatar || getAvatarUrl(u.email),
