@@ -64,7 +64,7 @@ export async function exchangeCodeForToken(params: {
     throw new Error(`知乎 Token 交换失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
   }
 
-  if (!resp.ok || data.code) {
+  if (!resp.ok || (data.code && data.code !== 20000)) {
     const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
     throw new Error(`知乎 Token 交换失败 (${data.code || resp.status}): ${errMsg}`);
   }
@@ -95,7 +95,7 @@ export async function fetchZhihuUser(accessToken: string): Promise<ZhihuUserInfo
     throw new Error(`知乎用户信息获取失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
   }
 
-  if (!resp.ok || data.code) {
+  if (!resp.ok || (data.code && data.code !== 20000)) {
     const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
     throw new Error(`知乎用户信息获取失败 (${data.code || resp.status}): ${errMsg}`);
   }
