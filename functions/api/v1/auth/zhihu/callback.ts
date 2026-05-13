@@ -32,25 +32,23 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
     return redirectToLogin(env, `oauth_error=missing_code&debug_url=${encodeURIComponent(request.url)}`);
   }
 
-  // 3. 验证 state 参数（CSRF 防护）+ 从 Cookie 中读取 redirect 地址
+  // 3. 从 Cookie 中读取 redirect 地址（知乎黑客松 OAuth 不回传 state，仅从 cookie 提取 redirect）
   const state = url.searchParams.get('state');
   const cookieStateRaw = getCookieValue(request, 'zhihu_oauth_state');
-  let expectedState = '';
   let savedRedirect = '';
 
   if (cookieStateRaw) {
     try {
       const decoded = JSON.parse(decodeURIComponent(escape(atob(cookieStateRaw))));
-      expectedState = decoded.s || '';
       savedRedirect = decoded.r || '';
+      // 知乎黑客松 OAuth 不回传 state，仅在有 state 时做校验
+      const expectedState = decoded.s || '';
+      if (state && expectedState && state !== expectedState) {
+        return redirectToLogin(env, 'oauth_error=invalid_state');
+      }
     } catch {
-      // 旧格式兼容：直接作为 state 值
-      expectedState = cookieStateRaw;
+      // 旧格式兼容
     }
-  }
-
-  if (!state || !expectedState || state !== expectedState) {
-    return redirectToLogin(env, 'oauth_error=invalid_state');
   }
 
   // 4. 配置检查

@@ -70,7 +70,7 @@
     <!-- 版权信息 -->
     <div class="gb-footer">
       <span class="gb-copyright">
-        &copy; <a href="https://www.17you.com/" target="_blank" rel="noopener noreferrer">自游人</a>
+        &copy; <a href="https://www.17you.com/" target="_blank" rel="noopener noreferrer">自游人留言板</a>
       </span>
       <span class="gb-version">v1.0.0</span>
     </div>
