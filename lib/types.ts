@@ -13,6 +13,8 @@ export interface Env {
   ADMIN_USERNAME?: string;
   ADMIN_EMAIL?: string;
   ADMIN_PASSWORD?: string;
+  ZHIHU_APP_ID?: string;
+  ZHIHU_APP_KEY?: string;
 }
 
 // ===== 数据库行类型 =====
@@ -88,6 +90,18 @@ export interface DbAdminLog {
   detail: string;
   ip_address: string;
   created_at: string;
+}
+
+export interface DbOAuthConnection {
+  id: number;
+  user_id: number;
+  provider: string;
+  provider_uid: string;
+  access_token: string;
+  token_expires: string | null;
+  provider_info: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ===== API 响应类型 =====

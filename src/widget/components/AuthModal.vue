@@ -19,6 +19,11 @@
           <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
             {{ auth.loading.value ? '登录中...' : '登录' }}
           </button>
+          <div class="gb-divider"><span>或</span></div>
+          <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
+            <img class="gb-zhihu-icon" src="/images/zhihu.png" alt="知乎" />
+            知乎登录
+          </button>
           <div class="gb-modal-links">
             <button type="button" class="gb-link-btn" @click="switchMode('forgot-password')">忘记密码？</button>
             <button type="button" class="gb-link-btn" @click="switchMode('register')">没有账号？注册</button>
@@ -51,6 +56,11 @@
           <div v-if="error" class="gb-error">{{ error }}</div>
           <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
             {{ auth.loading.value ? '注册中...' : '注册' }}
+          </button>
+          <div class="gb-divider"><span>或</span></div>
+          <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
+            <img class="gb-zhihu-icon" src="/images/zhihu.png" alt="知乎" />
+            知乎登录
           </button>
           <div class="gb-modal-links">
             <button type="button" class="gb-link-btn" @click="switchMode('login')">已有账号？登录</button>
@@ -281,6 +291,21 @@ const modalCSS = `
   min-height: 44px; display: inline-flex; align-items: center;
 }
 .gb-link-btn:active { opacity: 0.7; }
+.gb-divider {
+  display: flex; align-items: center; margin: 16px 0;
+  color: var(--gb-text-secondary, #ccc); font-size: 13px;
+}
+.gb-divider::before, .gb-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--gb-border, #e8e8e8);
+}
+.gb-divider span { padding: 0 12px; }
+.gb-btn-zhihu {
+  background: var(--gb-bg, #fff); color: var(--gb-text, #333);
+  border: 1px solid var(--gb-border, #e0e0e0); gap: 8px;
+}
+.gb-btn-zhihu:hover { background: var(--gb-bg-secondary, #f7f8fa); }
+.gb-btn-zhihu:active { background: var(--gb-bg-secondary, #f0f1f3); }
+.gb-zhihu-icon { width: 20px; height: 20px; }
 /* 移动端适配 */
 @media (max-width: 480px) {
   .gb-modal-overlay { padding: 0; align-items: flex-end; }
@@ -495,6 +520,12 @@ async function handleLogin() {
   } else {
     close();
   }
+}
+
+/** 跳转知乎 OAuth 授权页 */
+function handleZhihuLogin() {
+  close();
+  auth.loginWithZhihu();
 }
 
 async function handleRegister() {

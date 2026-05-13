@@ -136,5 +136,22 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, created_at);
 
+-- OAuth 第三方账号绑定表
+CREATE TABLE IF NOT EXISTS oauth_connections (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider      TEXT NOT NULL,
+  provider_uid  TEXT NOT NULL,
+  access_token  TEXT DEFAULT '',
+  token_expires TEXT DEFAULT NULL,
+  provider_info TEXT DEFAULT '',
+  created_at    TEXT DEFAULT (datetime('now')),
+  updated_at    TEXT DEFAULT (datetime('now')),
+  UNIQUE(provider, provider_uid)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_user ON oauth_connections(user_id);
+CREATE INDEX IF NOT EXISTS idx_oauth_provider_uid ON oauth_connections(provider, provider_uid);
+
 -- 记录迁移版本
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');

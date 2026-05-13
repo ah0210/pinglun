@@ -173,8 +173,9 @@ onMounted(async () => {
   const el = getCurrentInstance()!.proxy!.$el as HTMLElement;
   adoptTheme(el.getRootNode() as ShadowRoot);
   await messages.fetchConfig();
-  await messages.fetchMessages(props.pageId);
   await auth.init();
+  await auth.handleOAuthCallback();
+  await messages.fetchMessages(props.pageId);
 });
 </script>
 

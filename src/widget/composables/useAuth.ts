@@ -24,18 +24,34 @@ export function useAuth() {
   async function init() {
     if (!_apiBase) return;
     const token = getAccessToken();
-    if (!token) return;
 
-    try {
-      const resp = await apiGet<PublicUser>(_apiBase, '/auth/me');
-      if (resp.success && resp.data) {
-        user.value = resp.data;
-      } else {
-        clearAuth();
-      }
-    } catch {
+    if (token) {
+      try {
+        const resp = await apiGet<PublicUser>(_apiBase, '/auth/me');
+        if (resp.success && resp.data) {
+          user.value = resp.data;
+          return;
+        }
+      } catch { /* fall through to refresh */ }
       clearAuth();
     }
+
+    try {
+      const resp = await fetch(`${_apiBase}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (resp.ok) {
+        const data = await resp.json() as { success: boolean; data?: { accessToken: string; user: PublicUser } };
+        if (data.success && data.data) {
+          setAccessToken(data.data.accessToken);
+          user.value = data.data.user;
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+
+    clearAuth();
   }
 
   async function login(login: string, password: string, turnstileToken: string) {
@@ -171,6 +187,40 @@ export function useAuth() {
     }
   }
 
+  /** 跳转知乎 OAuth 授权页 */
+  function loginWithZhihu() {
+    if (!_apiBase) return;
+    window.location.href = `${_apiBase}/auth/zhihu`;
+  }
+
+  /** 处理 OAuth 回调（从 URL fragment 中提取 access_token） */
+  async function handleOAuthCallback(): Promise<boolean> {
+    const hash = window.location.hash;
+    if (!hash) return false;
+
+    const params = new URLSearchParams(hash.substring(1));
+    const accessToken = params.get('access_token');
+    if (!accessToken) return false;
+
+    setAccessToken(accessToken);
+
+    // 清理 URL hash
+    if (window.history.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+
+    try {
+      const resp = await apiGet<PublicUser>(_apiBase, '/auth/me');
+      if (resp.success && resp.data) {
+        user.value = resp.data;
+        return true;
+      }
+    } catch { /* ignore */ }
+
+    clearAuth();
+    return false;
+  }
+
   async function resendVerification() {
     loading.value = true;
     try {
@@ -199,5 +249,7 @@ export function useAuth() {
     changePassword,
     changeEmail,
     resendVerification,
+    loginWithZhihu,
+    handleOAuthCallback,
   };
 }

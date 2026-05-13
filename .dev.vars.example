@@ -12,3 +12,7 @@ TURNSTILE_SITE_KEY=0x4AAAAAAxxxxxxxx
 ADMIN_USERNAME=admin
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=YourSecurePassword123
+
+# === 知乎 OAuth ===
+ZHIHU_APP_ID=
+ZHIHU_APP_KEY=

@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自游人知趣</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    }
+    .login-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 8px;
+    }
+    .login-subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 32px;
+    }
+    .field {
+      margin-bottom: 16px;
+    }
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .field input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    .field input:focus {
+      border-color: #667eea;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-family: inherit;
+      min-height: 48px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-zhihu {
+      background: #fff;
+      color: #333;
+      border: 1px solid #e0e0e0;
+      gap: 10px;
+    }
+    .btn-zhihu:hover { background: #f7f8fa; }
+    .btn-zhihu:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-zhihu img {
+      width: 22px;
+      height: 22px;
+    }
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: #ccc;
+      font-size: 13px;
+    }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e8e8e8;
+    }
+    .divider span {
+      padding: 0 16px;
+    }
+    .error-msg {
+      background: #fff2f0;
+      color: #e74c3c;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .error-msg.show { display: block; }
+    .success-area {
+      display: none;
+      text-align: center;
+    }
+    .success-area.show { display: block; }
+    .success-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      margin: 0 auto 12px;
+      object-fit: cover;
+    }
+    .success-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+    .success-role {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 16px;
+    }
+    .success-redirect {
+      font-size: 13px;
+      color: #667eea;
+    }
+    .login-form { display: block; }
+    .login-form.hidden { display: none; }
+    .register-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #999;
+    }
+    .register-link a {
+      color: #667eea;
+      text-decoration: none;
+    }
+    .register-link a:hover { text-decoration: underline; }
+    @media (max-width: 480px) {
+      .login-card { padding: 28px 20px; border-radius: 12px; }
+      .login-title { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <h1 class="login-title">自游人知趣</h1>
+    <p class="login-subtitle">登录以继续</p>
+
+    <div id="error-msg" class="error-msg"></div>
+
+    <!-- 登录表单 -->
+    <div id="login-form" class="login-form">
+      <div class="field">
+        <label for="login-input">用户名或邮箱</label>
+        <input id="login-input" type="text" placeholder="请输入用户名或邮箱" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="password-input">密码</label>
+        <input id="password-input" type="password" placeholder="请输入密码" autocomplete="current-password" />
+      </div>
+      <button id="btn-login" class="btn btn-primary" type="button">登 录</button>
+
+      <div class="divider"><span>或</span></div>
+
+      <button id="btn-zhihu" class="btn btn-zhihu" type="button">
+        <img src="/images/zhihu.png" alt="知乎" />
+        知乎登录
+      </button>
+
+      <div class="register-link">
+        没有账号？<a href="/login.html#register">联系管理员</a>
+      </div>
+    </div>
+
+    <!-- 登录成功 -->
+    <div id="success-area" class="success-area">
+      <img id="success-avatar" class="success-avatar" src="" alt="头像" />
+      <div id="success-name" class="success-name"></div>
+      <div id="success-role" class="success-role"></div>
+      <div id="success-redirect" class="success-redirect"></div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      var API_BASE = window.location.origin;
+      var DEFAULT_REDIRECT = 'https://www.17you.com/';
+      var REDIRECT_DELAY = 3000;
+
+      var loginForm = document.getElementById('login-form');
+      var errorEl = document.getElementById('error-msg');
+      var successArea = document.getElementById('success-area');
+      var loginInput = document.getElementById('login-input');
+      var passwordInput = document.getElementById('password-input');
+      var btnLogin = document.getElementById('btn-login');
+      var btnZhihu = document.getElementById('btn-zhihu');
+
+      /** 从 URL hash 或 query 中获取重定向地址 */
+      function getRedirectUrl() {
+        var hash = window.location.hash;
+        if (hash) {
+          var params = new URLSearchParams(hash.substring(1));
+          var redirect = params.get('redirect');
+          if (redirect) return redirect;
+        }
+        var search = new URLSearchParams(window.location.search);
+        return search.get('redirect') || DEFAULT_REDIRECT;
+      }
+
+      /** 显示错误信息 */
+      function showError(msg) {
+        errorEl.textContent = msg;
+        errorEl.classList.add('show');
+      }
+
+      /** 隐藏错误信息 */
+      function hideError() {
+        errorEl.classList.remove('show');
+      }
+
+      /** 登录成功后显示用户信息并跳转 */
+      function onLoginSuccess(data) {
+        localStorage.setItem('guestbook_access_token', data.accessToken);
+
+        loginForm.classList.add('hidden');
+        successArea.classList.add('show');
+
+        document.getElementById('success-avatar').src = data.user.avatar || '';
+        document.getElementById('success-name').textContent = data.user.displayName || data.user.username;
+        document.getElementById('success-role').textContent = data.user.role === 'admin' ? '管理员' : '用户';
+
+        var redirectUrl = getRedirectUrl();
+        document.getElementById('success-redirect').textContent = REDIRECT_DELAY / 1000 + ' 秒后跳转...';
+
+        setTimeout(function() {
+          window.location.href = redirectUrl;
+        }, REDIRECT_DELAY);
+      }
+
+      /** 处理 OAuth 回调（URL hash 中的 access_token） */
+      function handleOAuthCallback() {
+        var hash = window.location.hash;
+        if (!hash) return;
+
+        var params = new URLSearchParams(hash.substring(1));
+
+        // 检查 OAuth 错误
+        var oauthError = params.get('oauth_error');
+        if (oauthError) {
+          showError(decodeURIComponent(oauthError));
+          cleanHash();
+          return;
+        }
+
+        // 提取 access_token
+        var accessToken = params.get('access_token');
+        if (!accessToken) return;
+
+        localStorage.setItem('guestbook_access_token', accessToken);
+        cleanHash();
+
+        // 获取用户信息
+        fetch(API_BASE + '/api/v1/auth/me', {
+          headers: { 'Authorization': 'Bearer ' + accessToken }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+          if (resp.success && resp.data) {
+            onLoginSuccess({
+              accessToken: accessToken,
+              user: resp.data
+            });
+          } else {
+            showError('获取用户信息失败');
+            localStorage.removeItem('guestbook_access_token');
+          }
+        })
+        .catch(function() {
+          showError('网络错误，请重试');
+          localStorage.removeItem('guestbook_access_token');
+        });
+      }
+
+      /** 清理 URL hash */
+      function cleanHash() {
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+
+      /** 普通登录 */
+      btnLogin.addEventListener('click', function() {
+        hideError();
+        var login = loginInput.value.trim();
+        var password = passwordInput.value;
+
+        if (!login || !password) {
+          showError('请填写用户名和密码');
+          return;
+        }
+
+        btnLogin.disabled = true;
+        btnLogin.textContent = '登录中...';
+
+        fetch(API_BASE + '/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login: login, password: password, turnstileToken: '' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+          if (resp.success && resp.data) {
+            onLoginSuccess(resp.data);
+          } else {
+            showError(resp.error ? resp.error.message : '登录失败');
+          }
+        })
+        .catch(function() {
+          showError('网络错误，请重试');
+        })
+        .finally(function() {
+          btnLogin.disabled = false;
+          btnLogin.textContent = '登 录';
+        });
+      });
+
+      /** 回车登录 */
+      passwordInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') btnLogin.click();
+      });
+      loginInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') passwordInput.focus();
+      });
+
+      /** 知乎登录 */
+      btnZhihu.addEventListener('click', function() {
+        var redirectUrl = getRedirectUrl();
+        var zhihuAuthUrl = API_BASE + '/api/v1/auth/zhihu';
+        if (redirectUrl !== DEFAULT_REDIRECT) {
+          zhihuAuthUrl += '?redirect=' + encodeURIComponent(redirectUrl);
+        }
+        window.location.href = zhihuAuthUrl;
+      });
+
+      // 页面加载时检查 OAuth 回调
+      handleOAuthCallback();
+    })();
+  </script>
+</body>
+</html>
