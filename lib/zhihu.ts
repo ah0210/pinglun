@@ -104,7 +104,24 @@ export async function fetchZhihuUser(accessToken: string): Promise<ZhihuUserInfo
     throw new Error(`知乎用户信息获取失败: 响应缺少 uid, 完整响应: ${rawText.substring(0, 300)}`);
   }
 
-  return data as ZhihuUserInfo;
+  /**
+   * 字段兜底：知乎API在应用权限不足或用户未授权时，可能不返回 email/phone_no 字段
+   * 此时运行时为 undefined，必须显式补空字符串
+   */
+  const userInfo: ZhihuUserInfo = {
+    uid: data.uid,
+    fullname: data.fullname || '',
+    gender: data.gender || '',
+    headline: data.headline || '',
+    description: data.description || '',
+    avatar_path: data.avatar_path || '',
+    phone_no: data.phone_no || '',
+    email: data.email || '',
+  };
+
+  console.log('[知乎用户信息] 解析结果:', { uid: userInfo.uid, fullname: userInfo.fullname, email: userInfo.email, phone_no: userInfo.phone_no });
+
+  return userInfo;
 }
 
 /** 生成知乎授权页 URL */
