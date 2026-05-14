@@ -22,6 +22,7 @@
       ref="authModalRef"
       :site-key="siteKey"
       :theme="effectiveTheme"
+      :force-skip-turnstile="!!forceSkipTurnstile"
       @close="onAuthModalClose"
     />
   </div>
@@ -44,11 +45,13 @@ const props = defineProps<{
   showEmail?: boolean;
   showVerifiedStatus?: boolean;
   avatarSize?: number;
+  forceSkipTurnstile?: boolean;
 }>();
 
 const apiBase = props.apiBase.replace(/\/+$/, '');
 const resolvedApiBase = apiBase.endsWith('/api/v1') ? apiBase : apiBase + '/api/v1';
 const siteKey = props.siteKey || '';
+const forceSkipTurnstile = props.forceSkipTurnstile || false;
 
 initAuth(resolvedApiBase);
 

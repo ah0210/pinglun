@@ -422,6 +422,12 @@ function handleOverlayTouchEnd(e: TouchEvent) {
 // ===== Turnstile =====
 let turnstileWidgetId: string | null = null;
 
+/**
+ * 渲染 Turnstile Widget（execute-only 模式）
+ * 仅创建 widget，不触发验证。需调用 turnstile.execute() 才开始验证
+ * @param action - 验证场景标识（login/register/forgot-password）
+ * @returns Promise<string> - 验证完成后返回 token，失败/超时返回空串
+ */
 function renderTurnstile(action: string): Promise<string> {
   return new Promise((resolve) => {
     // 紧急降级模式下跳过 Turnstile 渲染
@@ -475,8 +481,14 @@ function renderTurnstile(action: string): Promise<string> {
           resolve('');
         },
         size: 'compact',
-        execution: 'render',
+        execution: 'execute-only',
       });
+
+      /**
+       * execute-only 模式：调用 execute() 触发验证挑战
+       * 验证完成后 token 通过上面的 callback 返回
+       */
+      turnstile.execute(turnstileWidgetId);
     } catch (e) {
       clearTimeout(timeout);
       console.warn('[Guestbook] Turnstile render failed:', e);

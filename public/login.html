@@ -364,8 +364,8 @@
             size: 'compact',
             execution: 'execute-only',
             callback: function() {},
-            'error-callback': function() { removeTurnstileWidget(); },
-            'expired-callback': function() { removeTurnstileWidget(); }
+            'error-callback': function() {},
+            'expired-callback': function() {}
           });
         } catch (e) {
           console.warn('Turnstile render failed:', e);
@@ -383,8 +383,8 @@
             size: 'compact',
             execution: 'execute-only',
             callback: function() {},
-            'error-callback': function() { removeRegTurnstileWidget(); },
-            'expired-callback': function() { removeRegTurnstileWidget(); }
+            'error-callback': function() {},
+            'expired-callback': function() {}
           });
         } catch (e) {
           console.warn('Turnstile reg render failed:', e);
@@ -409,59 +409,72 @@
         }
       }
 
-      /** 获取登录 Turnstile token（execute-only 模式，先触发验证再取 token） */
+      /**
+       * 获取登录 Turnstile token（execute-only 模式）
+       * 调用 turnstile.execute() 触发验证，通过重新 render 注册 callback 接收 token
+       * @returns Promise<string> - token 字符串，失败/超时返回空串
+       */
       function getTurnstileToken() {
         if (forceSkipTurnstile) return Promise.resolve('');
         var turnstile = window.turnstile;
-        if (!turnstile || !turnstileWidgetId) return Promise.resolve('');
+        if (!turnstile || !turnstileSiteKey) return Promise.resolve('');
         return new Promise(function(resolve) {
           var timeout = setTimeout(function() { resolve(''); }, 15000);
           try {
-            turnstile.execute(turnstileWidgetId);
-            /** 轮询等待 token 生成（execute 触发验证，callback 中 token 写入 widget） */
-            var pollInterval = setInterval(function() {
-              try {
-                var token = turnstile.getResponse(turnstileWidgetId);
-                if (token) {
-                  clearTimeout(timeout);
-                  clearInterval(pollInterval);
-                  turnstile.reset(turnstileWidgetId);
-                  resolve(token);
-                }
-              } catch (e) {
+            /** 移除旧 widget，重新 render 并注册 callback 接收 token */
+            removeTurnstileWidget();
+            turnstileWidgetId = turnstile.render('#turnstile-container', {
+              sitekey: turnstileSiteKey,
+              size: 'compact',
+              execution: 'execute-only',
+              callback: function(token) {
                 clearTimeout(timeout);
-                clearInterval(pollInterval);
+                resolve(token || '');
+              },
+              'error-callback': function() {
+                clearTimeout(timeout);
+                resolve('');
+              },
+              'expired-callback': function() {
+                clearTimeout(timeout);
                 resolve('');
               }
-            }, 200);
+            });
+            turnstile.execute(turnstileWidgetId);
           } catch (e) { clearTimeout(timeout); resolve(''); }
         });
       }
 
-      /** 获取注册 Turnstile token（execute-only 模式） */
+      /**
+       * 获取注册 Turnstile token（execute-only 模式）
+       * @returns Promise<string> - token 字符串，失败/超时返回空串
+       */
       function getRegTurnstileToken() {
         if (forceSkipTurnstile) return Promise.resolve('');
         var turnstile = window.turnstile;
-        if (!turnstile || !turnstileRegWidgetId) return Promise.resolve('');
+        if (!turnstile || !turnstileSiteKey) return Promise.resolve('');
         return new Promise(function(resolve) {
           var timeout = setTimeout(function() { resolve(''); }, 15000);
           try {
-            turnstile.execute(turnstileRegWidgetId);
-            var pollInterval = setInterval(function() {
-              try {
-                var token = turnstile.getResponse(turnstileRegWidgetId);
-                if (token) {
-                  clearTimeout(timeout);
-                  clearInterval(pollInterval);
-                  turnstile.reset(turnstileRegWidgetId);
-                  resolve(token);
-                }
-              } catch (e) {
+            removeRegTurnstileWidget();
+            turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
+              sitekey: turnstileSiteKey,
+              size: 'compact',
+              execution: 'execute-only',
+              callback: function(token) {
                 clearTimeout(timeout);
-                clearInterval(pollInterval);
+                resolve(token || '');
+              },
+              'error-callback': function() {
+                clearTimeout(timeout);
+                resolve('');
+              },
+              'expired-callback': function() {
+                clearTimeout(timeout);
                 resolve('');
               }
-            }, 200);
+            });
+            turnstile.execute(turnstileRegWidgetId);
           } catch (e) { clearTimeout(timeout); resolve(''); }
         });
       }
@@ -616,6 +629,7 @@
           fetch(API_BASE + '/api/v1/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ login: login, password: password, turnstileToken: turnstileToken })
           })
           .then(function(r) { return r.json(); })
@@ -690,6 +704,7 @@
           fetch(API_BASE + '/api/v1/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ username: username, email: email, phone: phone, password: password, turnstileToken: turnstileToken })
           })
           .then(function(r) { return r.json(); })
