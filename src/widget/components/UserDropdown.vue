@@ -204,24 +204,26 @@ onUnmounted(() => {
 }
 
 .gb-dropdown-header {
-  padding: 10px 14px;
+  padding: 8px 14px;
 }
 
 .gb-dropdown-username {
   font-weight: 600;
   font-size: 14px;
   color: var(--gb-text, #333);
+  line-height: 1.3;
 }
 
 .gb-dropdown-email {
   font-size: 12px;
   color: var(--gb-text-secondary, #666);
-  margin-top: 2px;
+  margin-top: 1px;
   word-break: break-all;
+  line-height: 1.3;
 }
 
 .gb-dropdown-verified {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .gb-badge {

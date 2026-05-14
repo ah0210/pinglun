@@ -353,7 +353,7 @@
         document.head.appendChild(script);
       }
 
-      /** 渲染登录 Turnstile Widget */
+      /** 渲染登录 Turnstile Widget（execute-only 模式，点登录时才触发验证） */
       function renderTurnstileWidget() {
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return;
@@ -362,7 +362,7 @@
           turnstileWidgetId = turnstile.render('#turnstile-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'render',
+            execution: 'execute-only',
             callback: function() {},
             'error-callback': function() { removeTurnstileWidget(); },
             'expired-callback': function() { removeTurnstileWidget(); }
@@ -372,7 +372,7 @@
         }
       }
 
-      /** 渲染注册 Turnstile Widget */
+      /** 渲染注册 Turnstile Widget（execute-only 模式，点注册时才触发验证） */
       function renderRegTurnstileWidget() {
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return;
@@ -381,7 +381,7 @@
           turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'render',
+            execution: 'execute-only',
             callback: function() {},
             'error-callback': function() { removeRegTurnstileWidget(); },
             'expired-callback': function() { removeRegTurnstileWidget(); }
@@ -409,28 +409,61 @@
         }
       }
 
-      /** 获取登录 Turnstile token */
+      /** 获取登录 Turnstile token（execute-only 模式，先触发验证再取 token） */
       function getTurnstileToken() {
-        if (forceSkipTurnstile) return '';
+        if (forceSkipTurnstile) return Promise.resolve('');
         var turnstile = window.turnstile;
-        if (!turnstile || !turnstileWidgetId) return '';
-        try {
-          var token = turnstile.getResponse(turnstileWidgetId);
-          turnstile.reset(turnstileWidgetId);
-          return token || '';
-        } catch (e) { return ''; }
+        if (!turnstile || !turnstileWidgetId) return Promise.resolve('');
+        return new Promise(function(resolve) {
+          var timeout = setTimeout(function() { resolve(''); }, 15000);
+          try {
+            turnstile.execute(turnstileWidgetId);
+            /** 轮询等待 token 生成（execute 触发验证，callback 中 token 写入 widget） */
+            var pollInterval = setInterval(function() {
+              try {
+                var token = turnstile.getResponse(turnstileWidgetId);
+                if (token) {
+                  clearTimeout(timeout);
+                  clearInterval(pollInterval);
+                  turnstile.reset(turnstileWidgetId);
+                  resolve(token);
+                }
+              } catch (e) {
+                clearTimeout(timeout);
+                clearInterval(pollInterval);
+                resolve('');
+              }
+            }, 200);
+          } catch (e) { clearTimeout(timeout); resolve(''); }
+        });
       }
 
-      /** 获取注册 Turnstile token */
+      /** 获取注册 Turnstile token（execute-only 模式） */
       function getRegTurnstileToken() {
-        if (forceSkipTurnstile) return '';
+        if (forceSkipTurnstile) return Promise.resolve('');
         var turnstile = window.turnstile;
-        if (!turnstile || !turnstileRegWidgetId) return '';
-        try {
-          var token = turnstile.getResponse(turnstileRegWidgetId);
-          turnstile.reset(turnstileRegWidgetId);
-          return token || '';
-        } catch (e) { return ''; }
+        if (!turnstile || !turnstileRegWidgetId) return Promise.resolve('');
+        return new Promise(function(resolve) {
+          var timeout = setTimeout(function() { resolve(''); }, 15000);
+          try {
+            turnstile.execute(turnstileRegWidgetId);
+            var pollInterval = setInterval(function() {
+              try {
+                var token = turnstile.getResponse(turnstileRegWidgetId);
+                if (token) {
+                  clearTimeout(timeout);
+                  clearInterval(pollInterval);
+                  turnstile.reset(turnstileRegWidgetId);
+                  resolve(token);
+                }
+              } catch (e) {
+                clearTimeout(timeout);
+                clearInterval(pollInterval);
+                resolve('');
+              }
+            }, 200);
+          } catch (e) { clearTimeout(timeout); resolve(''); }
+        });
       }
 
       /** 从 URL hash 或 query 中获取重定向地址 */
@@ -566,6 +599,7 @@
 
       /** 普通登录 */
       btnLogin.addEventListener('click', function() {
+        if (btnLogin.disabled) return;
         hideError();
         var login = loginInput.value.trim();
         var password = passwordInput.value;
@@ -578,27 +612,26 @@
         btnLogin.disabled = true;
         btnLogin.textContent = '登录中...';
 
-        var turnstileToken = getTurnstileToken();
-
-        fetch(API_BASE + '/api/v1/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ login: login, password: password, turnstileToken: turnstileToken })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(resp) {
-          if (resp.success && resp.data) {
-            onLoginSuccess(resp.data);
-          } else {
-            showError(resp.error ? resp.error.message : '登录失败');
-            removeTurnstileWidget();
-            renderTurnstileWidget();
-          }
-        })
-        .catch(function() { showError('网络错误，请重试'); })
-        .finally(function() {
-          btnLogin.disabled = false;
-          btnLogin.textContent = '登 录';
+        getTurnstileToken().then(function(turnstileToken) {
+          fetch(API_BASE + '/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ login: login, password: password, turnstileToken: turnstileToken })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(resp) {
+            if (resp.success && resp.data) {
+              onLoginSuccess(resp.data);
+            } else {
+              showError(resp.error ? resp.error.message : '登录失败');
+              renderTurnstileWidget();
+            }
+          })
+          .catch(function() { showError('网络错误，请重试'); })
+          .finally(function() {
+            btnLogin.disabled = false;
+            btnLogin.textContent = '登 录';
+          });
         });
       });
 
@@ -612,6 +645,7 @@
 
       /** 注册 */
       btnRegister.addEventListener('click', function() {
+        if (btnRegister.disabled) return;
         hideError();
 
         var username = regUsername.value.trim();
@@ -652,27 +686,26 @@
         btnRegister.disabled = true;
         btnRegister.textContent = '注册中...';
 
-        var turnstileToken = getRegTurnstileToken();
-
-        fetch(API_BASE + '/api/v1/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: username, email: email, phone: phone, password: password, turnstileToken: turnstileToken })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(resp) {
-          if (resp.success && resp.data) {
-            onLoginSuccess(resp.data);
-          } else {
-            showError(resp.error ? resp.error.message : '注册失败');
-            removeRegTurnstileWidget();
-            renderRegTurnstileWidget();
-          }
-        })
-        .catch(function() { showError('网络错误，请重试'); })
-        .finally(function() {
-          btnRegister.disabled = false;
-          btnRegister.textContent = '注 册';
+        getRegTurnstileToken().then(function(turnstileToken) {
+          fetch(API_BASE + '/api/v1/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, email: email, phone: phone, password: password, turnstileToken: turnstileToken })
+          })
+          .then(function(r) { return r.json(); })
+          .then(function(resp) {
+            if (resp.success && resp.data) {
+              onLoginSuccess(resp.data);
+            } else {
+              showError(resp.error ? resp.error.message : '注册失败');
+              renderRegTurnstileWidget();
+            }
+          })
+          .catch(function() { showError('网络错误，请重试'); })
+          .finally(function() {
+            btnRegister.disabled = false;
+            btnRegister.textContent = '注 册';
+          });
         });
       });
 

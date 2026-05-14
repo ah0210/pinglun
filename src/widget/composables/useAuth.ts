@@ -102,9 +102,22 @@ export function useAuth() {
     }
   }
 
+  /**
+   * 退出登录
+   * 跨域 Widget 必须用 fetch + credentials: 'include' 发送请求，
+   * 确保浏览器发送 refresh_token cookie 让后端吊销，同时 Set-Cookie 清除指令生效
+   */
   async function logout() {
     try {
-      await apiPost(_apiBase, '/auth/logout');
+      const token = getAccessToken();
+      await fetch(`${_apiBase}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+      });
     } finally {
       clearAuth();
       user.value = null;

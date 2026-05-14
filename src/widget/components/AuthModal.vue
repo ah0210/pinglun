@@ -19,11 +19,6 @@
           <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
             {{ auth.loading.value ? '登录中...' : '登录' }}
           </button>
-          <div class="gb-divider"><span>或</span></div>
-          <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
-            <img class="gb-zhihu-icon" src="https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
-            知乎登录
-          </button>
           <div class="gb-modal-links">
             <button type="button" class="gb-link-btn" @click="switchMode('forgot-password')">忘记密码？</button>
             <button type="button" class="gb-link-btn" @click="switchMode('register')">没有账号？注册</button>
@@ -56,11 +51,6 @@
           <div v-if="error" class="gb-error">{{ error }}</div>
           <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
             {{ auth.loading.value ? '注册中...' : '注册' }}
-          </button>
-          <div class="gb-divider"><span>或</span></div>
-          <button type="button" class="gb-btn gb-btn-zhihu gb-btn-block" @click="handleZhihuLogin">
-            <img class="gb-zhihu-icon" src="https://guestbook.17you.com/images/zhihu.png" alt="知乎" />
-            知乎登录
           </button>
           <div class="gb-modal-links">
             <button type="button" class="gb-link-btn" @click="switchMode('login')">已有账号？登录</button>
@@ -509,16 +499,25 @@ function removeTurnstileContainer() {
   }
 }
 
+// ===== 防重复提交锁 =====
+let submitting = false;
+
 // ===== 表单处理 =====
 async function handleLogin() {
+  if (submitting || auth.loading.value) return;
+  submitting = true;
   error.value = '';
-  const turnstileToken = await renderTurnstile('login');
-  const result = await auth.login(form.value.login, form.value.password, turnstileToken);
-  if (!result.success) {
-    error.value = result.error?.message || '登录失败';
-    removeTurnstileContainer();
-  } else {
-    close();
+  try {
+    const turnstileToken = await renderTurnstile('login');
+    const result = await auth.login(form.value.login, form.value.password, turnstileToken);
+    if (!result.success) {
+      error.value = result.error?.message || '登录失败';
+      removeTurnstileContainer();
+    } else {
+      close();
+    }
+  } finally {
+    submitting = false;
   }
 }
 
@@ -529,6 +528,7 @@ function handleZhihuLogin() {
 }
 
 async function handleRegister() {
+  if (submitting || auth.loading.value) return;
   error.value = '';
 
   // 验证用户名
@@ -566,31 +566,43 @@ async function handleRegister() {
     return;
   }
 
-  const turnstileToken = await renderTurnstile('register');
-  const result = await auth.register(form.value.username, form.value.email, form.value.phone, form.value.password, turnstileToken);
-  if (!result.success) {
-    error.value = result.error?.message || '注册失败';
-    removeTurnstileContainer();
-  } else {
-    close();
+  submitting = true;
+  try {
+    const turnstileToken = await renderTurnstile('register');
+    const result = await auth.register(form.value.username, form.value.email, form.value.phone, form.value.password, turnstileToken);
+    if (!result.success) {
+      error.value = result.error?.message || '注册失败';
+      removeTurnstileContainer();
+    } else {
+      close();
+    }
+  } finally {
+    submitting = false;
   }
 }
 
 async function handleForgotPassword() {
+  if (submitting || auth.loading.value) return;
+  submitting = true;
   error.value = '';
   successMsg.value = '';
-  const turnstileToken = await renderTurnstile('forgot-password');
-  const result = await auth.forgotPassword(form.value.email, turnstileToken);
-  if (result.success) {
-    successMsg.value = result.data?.message || '如果该邮箱已注册，您将收到重置邮件';
-    removeTurnstileContainer();
-  } else {
-    error.value = result.error?.message || '操作失败';
-    removeTurnstileContainer();
+  try {
+    const turnstileToken = await renderTurnstile('forgot-password');
+    const result = await auth.forgotPassword(form.value.email, turnstileToken);
+    if (result.success) {
+      successMsg.value = result.data?.message || '如果该邮箱已注册，您将收到重置邮件';
+      removeTurnstileContainer();
+    } else {
+      error.value = result.error?.message || '操作失败';
+      removeTurnstileContainer();
+    }
+  } finally {
+    submitting = false;
   }
 }
 
 async function handleResetPassword() {
+  if (submitting || auth.loading.value) return;
   error.value = '';
   successMsg.value = '';
   if (form.value.newPassword !== form.value.confirmPassword) {
@@ -601,19 +613,22 @@ async function handleResetPassword() {
     error.value = '密码至少 8 个字符';
     return;
   }
-  const result = await auth.resetPassword(resetToken.value, form.value.newPassword);
-  if (result.success) {
-    successMsg.value = '密码重置成功，请使用新密码登录';
-    setTimeout(() => {
-      close();
-      open('login');
-    }, 2000);
-  } else {
-    error.value = result.error?.message || '重置失败';
+  submitting = true;
+  try {
+    const result = await auth.resetPassword(resetToken.value, form.value.newPassword);
+    if (result.success) {
+      successMsg.value = '密码重置成功，请使用新密码登录';
+      setTimeout(() => { close(); open('login'); }, 2000);
+    } else {
+      error.value = result.error?.message || '重置失败';
+    }
+  } finally {
+    submitting = false;
   }
 }
 
 async function handleChangePassword() {
+  if (submitting || auth.loading.value) return;
   error.value = '';
   successMsg.value = '';
   if (form.value.newPassword !== form.value.confirmPassword) {
@@ -624,31 +639,40 @@ async function handleChangePassword() {
     error.value = '新密码至少 8 个字符';
     return;
   }
-  const result = await auth.changePassword(form.value.currentPassword, form.value.newPassword);
-  if (result.success) {
-    successMsg.value = '密码修改成功，请重新登录';
-    setTimeout(() => {
-      close();
-      open('login');
-    }, 2000);
-  } else {
-    error.value = result.error?.message || '修改失败';
+  submitting = true;
+  try {
+    const result = await auth.changePassword(form.value.currentPassword, form.value.newPassword);
+    if (result.success) {
+      successMsg.value = '密码修改成功，请重新登录';
+      setTimeout(() => { close(); open('login'); }, 2000);
+    } else {
+      error.value = result.error?.message || '修改失败';
+    }
+  } finally {
+    submitting = false;
   }
 }
 
 async function handleChangeEmail() {
+  if (submitting || auth.loading.value) return;
   error.value = '';
   successMsg.value = '';
-  const result = await auth.changeEmail(form.value.newEmail, form.value.currentPassword);
-  if (result.success) {
-    successMsg.value = '邮箱已修改，请验证新邮箱';
-    setTimeout(() => close(), 2000);
-  } else {
-    error.value = result.error?.message || '修改失败';
+  submitting = true;
+  try {
+    const result = await auth.changeEmail(form.value.newEmail, form.value.currentPassword);
+    if (result.success) {
+      successMsg.value = '邮箱已修改，请验证新邮箱';
+      setTimeout(() => close(), 2000);
+    } else {
+      error.value = result.error?.message || '修改失败';
+    }
+  } finally {
+    submitting = false;
   }
 }
 
 async function handleChangeDisplayName() {
+  if (submitting || auth.loading.value) return;
   error.value = '';
   successMsg.value = '';
   const name = form.value.displayName.trim();
@@ -660,12 +684,17 @@ async function handleChangeDisplayName() {
     error.value = '显示名称不能超过 30 个字符';
     return;
   }
-  const result = await auth.updateProfile({ displayName: name });
-  if (result.success) {
-    successMsg.value = '显示名称修改成功';
-    setTimeout(() => close(), 1500);
-  } else {
-    error.value = result.error?.message || '修改失败';
+  submitting = true;
+  try {
+    const result = await auth.updateProfile({ displayName: name });
+    if (result.success) {
+      successMsg.value = '显示名称修改成功';
+      setTimeout(() => close(), 1500);
+    } else {
+      error.value = result.error?.message || '修改失败';
+    }
+  } finally {
+    submitting = false;
   }
 }
 
