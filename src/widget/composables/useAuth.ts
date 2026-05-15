@@ -36,6 +36,12 @@ export function useAuth() {
       clearAuth();
     }
 
+    /**
+     * 仅当 localStorage 有 access token 时才尝试 refresh
+     * 没有 token 说明用户从未登录或已退出，无需 refresh（避免无谓请求和 1003 错误）
+     */
+    if (!token) return;
+
     try {
       const resp = await fetch(`${_apiBase}/auth/refresh`, {
         method: 'POST',
