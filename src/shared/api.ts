@@ -86,16 +86,23 @@ export async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // 大多数请求不需要发送 Cookie（用 Bearer token 认证）
-  // 只有 refresh 请求需要 credentials: 'include' 发送 httpOnly Cookie
-  const needCredentials = (options as any).credentials === 'include';
-  const credentials = needCredentials ? 'include' : 'same-origin';
+  // 跨域 Widget 场景下必须用 'include'，确保：
+  // 1. 浏览器发送 refresh_token Cookie（refresh/logout 请求）
+  // 2. 后端 Set-Cookie 指令生效（登录/注册设置 refresh_token）
+  // 3. CORS 预检请求正确处理
+  const credentials = 'include';
 
   const resp = await fetch(`${apiBase}${path}`, {
     ...options,
     headers,
     credentials,
   });
+
+  // 防护：如果响应不是 JSON（如 Cloudflare 返回 HTML 错误页），避免 JSON.parse 崩溃
+  const contentType = resp.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    return { success: false, error: { code: -1, message: `请求失败：收到非 JSON 响应 (${resp.status})` } } as ApiResponse<T>;
+  }
 
   const data = await resp.json() as ApiResponse<T>;
 
