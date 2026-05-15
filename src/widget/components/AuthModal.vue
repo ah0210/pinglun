@@ -481,7 +481,7 @@ function renderTurnstile(action: string): Promise<string> {
           resolve('');
         },
         size: 'compact',
-        execution: 'execute-only',
+        execution: 'execute',
       });
 
       /**

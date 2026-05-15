@@ -362,7 +362,7 @@
           turnstileWidgetId = turnstile.render('#turnstile-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'execute-only',
+            execution: 'execute',
             callback: function() {},
             'error-callback': function() {},
             'expired-callback': function() {}
@@ -381,7 +381,7 @@
           turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'execute-only',
+            execution: 'execute',
             callback: function() {},
             'error-callback': function() {},
             'expired-callback': function() {}
@@ -426,7 +426,7 @@
             turnstileWidgetId = turnstile.render('#turnstile-container', {
               sitekey: turnstileSiteKey,
               size: 'compact',
-              execution: 'execute-only',
+              execution: 'execute',
               callback: function(token) {
                 clearTimeout(timeout);
                 resolve(token || '');
@@ -460,7 +460,7 @@
             turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
               sitekey: turnstileSiteKey,
               size: 'compact',
-              execution: 'execute-only',
+              execution: 'execute',
               callback: function(token) {
                 clearTimeout(timeout);
                 resolve(token || '');
