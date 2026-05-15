@@ -314,40 +314,47 @@ pnpm run db:migrate:v4:remote
 
 留言板以 Web Component 形式嵌入宿主页面，支持 Hugo 和任意网站。
 
-### 方式一：Hugo 集成（推荐）
+### 方式一：Hugo/FixIt 集成（推荐）
 
 将 `hugo-templates/` 中的文件复制到你的 Hugo 站点：
 
 ```
 hugo-templates/
-├── layouts/partials/footer/custom.html          → Widget 懒加载脚本（自动检测容器进入视口时加载）
-├── layouts/partials/post/footer-custom.html     → 文章底部自动嵌入留言板
-├── layouts/shortcodes/guestbook.html            → 手动插入短代码
-└── config-example.toml                          → 配置参考
+├── layouts/partials/custom/
+│   ├── guestbook-head.html      → <head> 预连接（preconnect）
+│   ├── gb-auth-bar.html         → 导航栏认证栏（桌面端+移动端）
+│   ├── guestbook.html           → 评论区留言板组件
+│   └── guestbook-footer.html    → 页面底部JS懒加载 + 暗色模式同步
+└── config-example.toml          → 配置参考
 ```
 
 在 `config.toml` 中添加：
 
 ```toml
+# 留言板参数
 [params.guestbook]
   enable = true
   apiBase = "https://guestbook.17you.com"           # 留言板服务地址（自动补全 /api/v1）
-  siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
-  theme = "auto"                                         # "light" | "dark" | "auto"
-  maxLength = 500                                        # 留言最大字数
-  minLength = 2                                          # 留言最小字数
+  siteKey = "0x4AAAAAADKEiieQVd99LXKI"              # Turnstile Site Key
+  theme = "auto"                                     # "light" | "dark" | "auto"
+
+# FixIt 主题 customPartials 注入点
+[params.customPartials]
+  head = ["custom/guestbook-head.html"]                              # <head> 预连接
+  menuDesktop = ["custom/gb-auth-bar.html"]                          # 桌面端导航栏认证栏
+  menuMobile = ["custom/gb-auth-bar.html"]                           # 移动端导航栏认证栏
+  profile = []
+  aside = []
+  comment = ["custom/guestbook.html"]                                 # 评论区留言板
+  footer = []
+  widgets = []
+  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+主题同步
 ```
 
 在文章 Front Matter 中可关闭留言板：
 
 ```yaml
 guestbook: false
-```
-
-或使用短代码手动插入：
-
-```markdown
-{{</* guestbook pageId="/about/" */>}}
 ```
 
 ### 方式二：任意页面集成
@@ -458,13 +465,17 @@ syncTheme();
 
 ### 导航栏认证栏
 
-在网站导航栏展示认证状态，使用 `<gb-auth-bar>` Web Component：
+在网站导航栏展示认证状态，使用 `<gb-auth-bar>` Web Component。
+
+Hugo/FixIt 集成已通过 `gb-auth-bar.html` 模板自动注入，无需手动添加。
+
+其他网站可手动嵌入：
 
 ```html
-<!-- HTML 标签方式 -->
-<gb-auth-bar api-base="https://your-domain.com/api/v1" theme="auto"></gb-auth-bar>
+<!-- HTML 标签方式（apiBase 必填，siteKey 和 forceSkipTurnstile 由 AuthBar 自动从 /api/v1/config 获取） -->
+<gb-auth-bar api-base="https://your-domain.com" theme="auto"></gb-auth-bar>
 
-<!-- JS API 方式（自动从页面上的 guestbook-widget 读取 apiBase 和 theme） -->
+<!-- JS API 方式（需页面上已有 guestbook-widget，自动读取 apiBase 和 theme） -->
 <script>
 GuestBoard.mountAuthBar('#nav-auth');
 </script>

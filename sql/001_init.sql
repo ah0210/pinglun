@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS messages (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   page_id    TEXT NOT NULL DEFAULT '',
+  page_url   TEXT DEFAULT '',
   content    TEXT NOT NULL,
   is_secret  INTEGER DEFAULT 0,
   status     TEXT DEFAULT 'approved',

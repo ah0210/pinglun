@@ -23,6 +23,7 @@ export interface ReplyToMessage {
 export interface PublicMessage {
   id: number;
   pageId: string;
+  pageUrl?: string;
   content: string;
   isSecret: boolean;
   status: string;
@@ -43,6 +44,7 @@ export interface BoardConfig {
   allowRegistration: boolean;
   requireEmailVerification: boolean;
   forceSkipTurnstile: boolean;
+  turnstileSiteKey?: string;
 }
 
 export interface PaginatedResponse<T> {

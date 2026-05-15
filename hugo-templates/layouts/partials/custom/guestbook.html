@@ -1,0 +1,17 @@
+<!-- Hugo: layouts/partials/custom/guestbook.html -->
+<!-- 评论区留言板：<guestbook-widget> Web Component -->
+<!-- maxLength/minLength 由后端 board_config 控制，前端自动从 /api/v1/config 获取 -->
+{{- if .Site.Params.guestbook.enable | default false }}
+{{- if .Params.guestbook | default true }}
+{{- $apiBase := .Site.Params.guestbook.apiBase | default "https://guestbook.17you.com" -}}
+{{- $siteKey := .Site.Params.guestbook.siteKey -}}
+{{- $theme := .Site.Params.guestbook.theme | default "auto" -}}
+{{- $pageId := .RelPermalink -}}
+<guestbook-widget
+  api-base="{{ $apiBase }}"
+  site-key="{{ $siteKey }}"
+  page-id="{{ $pageId }}"
+  theme="{{ $theme }}"
+></guestbook-widget>
+{{- end }}
+{{- end }}

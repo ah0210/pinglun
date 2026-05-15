@@ -58,6 +58,11 @@ export function useMessages(apiBase: string) {
     }
   }
 
+  /**
+   * 提交留言，自动注入宿主页面完整 URL（pageUrl）
+   * @param data - 留言数据（content, pageId, isSecret, replyTo, turnstileToken）
+   * @returns API 响应
+   */
   async function postMessage(data: {
     content: string;
     pageId: string;
@@ -65,7 +70,8 @@ export function useMessages(apiBase: string) {
     replyTo?: number;
     turnstileToken?: string;
   }) {
-    const resp = await apiPost<PublicMessage>(apiBase, '/messages', data);
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : '';
+    const resp = await apiPost<PublicMessage>(apiBase, '/messages', { ...data, pageUrl });
     if (resp.success) {
       // 发帖成功后重新拉取列表（从首页开始）
       await fetchMessages(data.pageId, '', 20, false);

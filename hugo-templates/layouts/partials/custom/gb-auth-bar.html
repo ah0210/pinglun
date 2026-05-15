@@ -1,0 +1,8 @@
+<!-- Hugo: layouts/partials/custom/gb-auth-bar.html -->
+<!-- 导航栏认证栏：<gb-auth-bar> Web Component -->
+<!-- apiBase 从 Hugo config 读取，AuthBar 自身会从 /api/v1/config 获取 turnstileSiteKey -->
+{{- if .Site.Params.guestbook.enable | default false }}
+{{- $apiBase := .Site.Params.guestbook.apiBase | default "https://guestbook.17you.com" -}}
+{{- $theme := .Site.Params.guestbook.theme | default "auto" -}}
+<gb-auth-bar api-base="{{ $apiBase }}" theme="{{ $theme }}"></gb-auth-bar>
+{{- end }}

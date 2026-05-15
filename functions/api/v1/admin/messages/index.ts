@@ -45,6 +45,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
   const items = (messages.results || []).map(m => ({
     id: m.id,
     pageId: m.page_id,
+    pageUrl: m.page_url || '',
     content: m.content,
     isSecret: m.is_secret === 1,
     status: m.status,

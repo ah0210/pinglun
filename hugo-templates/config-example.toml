@@ -1,9 +1,23 @@
 # Hugo 配置示例 — 留言板参数
 # 将以下内容添加到你的 Hugo config.toml
 
+# ===== 自游人留言板参数 =====
 [params.guestbook]
   enable = true
   apiBase = "https://guestbook.17you.com"           # 留言板服务地址（自动补全 /api/v1）
-  siteKey = "0x4AAAAAADKEiieQVd99LXKI"                  # Turnstile Site Key
-  theme = "auto"                                         # "light" | "dark" | "auto"
-  maxLength = 500                                        # 留言最大字数
+  siteKey = "0x4AAAAAADKEiieQVd99LXKI"              # Turnstile Site Key
+  theme = "auto"                                     # "light" | "dark" | "auto"
+
+# ===== FixIt 主题 customPartials 注入点 =====
+# 将留言板模板文件放到 layouts/partials/custom/ 目录下
+# 然后在此配置各注入点
+[params.customPartials]
+  head = ["custom/guestbook-head.html"]                              # <head> 预连接
+  menuDesktop = ["custom/gb-auth-bar.html"]                          # 桌面端导航栏认证栏
+  menuMobile = ["custom/gb-auth-bar.html"]                           # 移动端导航栏认证栏
+  profile = []                                                        # 个人资料卡片
+  aside = []                                                          # 侧边栏
+  comment = ["custom/guestbook.html"]                                 # 评论区留言板
+  footer = []                                                         # 页脚
+  widgets = []                                                        # 小工具区域
+  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+主题同步

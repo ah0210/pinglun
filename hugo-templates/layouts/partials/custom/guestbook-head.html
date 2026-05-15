@@ -1,0 +1,8 @@
+<!-- Hugo: layouts/partials/custom/guestbook-head.html -->
+<!-- 注入到 <head>：preconnect 预连接 + 暗色模式初始同步 -->
+{{- if .Site.Params.guestbook.enable | default false }}
+{{- $widgetHost := .Site.Params.guestbook.apiBase | default "https://guestbook.17you.com" -}}
+<link rel="preconnect" href="{{ $widgetHost }}">
+<link rel="preconnect" href="https://cravatar.cn">
+<link rel="preconnect" href="https://challenges.cloudflare.com">
+{{- end }}

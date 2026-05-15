@@ -63,7 +63,12 @@ const columns: DataTableColumns<any> = [
   { title: 'ID', key: 'id', width: 60 },
   { title: '用户', key: 'user', width: 120, render: (row) => row.user?.displayName || row.user?.username },
   { title: '内容', key: 'content', ellipsis: { tooltip: true } },
-  { title: '页面', key: 'pageId', width: 150, ellipsis: { tooltip: true } },
+  { title: '页面来源', key: 'pageId', width: 150, ellipsis: { tooltip: true } },
+  { title: '打开', key: 'open', width: 60, render: (row) => {
+    const pageUrl = row.pageUrl || '';
+    if (!pageUrl) return '-';
+    return h('a', { href: pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none; font-size: 16px;' }, '↗');
+  }},
   {
     title: '类型', key: 'isSecret', width: 70,
     render: (row) => row.isSecret ? h(NTag, { type: 'warning', size: 'small' }, () => '秘密') : h(NTag, { size: 'small' }, () => '公开'),

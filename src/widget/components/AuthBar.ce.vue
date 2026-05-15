@@ -20,21 +20,23 @@
     <!-- 认证弹窗 -->
     <AuthModal
       ref="authModalRef"
-      :site-key="siteKey"
+      :site-key="resolvedSiteKey"
       :theme="effectiveTheme"
-      :force-skip-turnstile="!!forceSkipTurnstile"
+      :force-skip-turnstile="resolvedForceSkipTurnstile"
       @close="onAuthModalClose"
     />
   </div>
 </template>
 
 <script lang="ts" setup>
-import { getCurrentInstance, onMounted, ref, watch } from 'vue';
+import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { useAuth, initAuth } from '../composables/useAuth';
 import { useTheme } from '../composables/useTheme';
 import { adoptTheme } from '../styles/theme';
+import { apiGet } from '../../shared/api';
 import UserDropdown from './UserDropdown.vue';
 import AuthModal from './AuthModal.vue';
+import type { BoardConfig } from '../../shared/types';
 
 type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
@@ -50,10 +52,16 @@ const props = defineProps<{
 
 const apiBase = props.apiBase.replace(/\/+$/, '');
 const resolvedApiBase = apiBase.endsWith('/api/v1') ? apiBase : apiBase + '/api/v1';
-const siteKey = props.siteKey || '';
-const forceSkipTurnstile = props.forceSkipTurnstile || false;
 
 initAuth(resolvedApiBase);
+
+/**
+ * 从 API 配置动态获取 turnstileSiteKey 和 forceSkipTurnstile
+ * 优先级：API配置 > props
+ */
+const config = ref<(BoardConfig & { turnstileSiteKey?: string }) | null>(null);
+const resolvedSiteKey = computed(() => config.value?.turnstileSiteKey || props.siteKey || '');
+const resolvedForceSkipTurnstile = computed(() => config.value?.forceSkipTurnstile || !!props.forceSkipTurnstile);
 
 const { effectiveTheme } = useTheme(props.theme || 'auto');
 
@@ -73,9 +81,18 @@ function onAuthModalClose() {
   // 状态由 useAuth 管理
 }
 
-onMounted(() => {
+onMounted(async () => {
   const el = getCurrentInstance()!.proxy!.$el as HTMLElement;
   adoptTheme(el.getRootNode() as ShadowRoot);
+
+  /** 从 API 获取配置（turnstileSiteKey、forceSkipTurnstile） */
+  try {
+    const resp = await apiGet<BoardConfig & { turnstileSiteKey?: string }>(resolvedApiBase, '/config');
+    if (resp.success && resp.data) {
+      config.value = resp.data;
+    }
+  } catch { /* 配置获取失败不阻塞功能 */ }
+
   auth.init();
 });
 </script>

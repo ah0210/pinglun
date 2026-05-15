@@ -113,6 +113,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     return {
       id: m.id,
       pageId: m.page_id,
+      pageUrl: m.page_url || '',
       content,
       isSecret: m.is_secret === 1,
       status: m.status,
@@ -154,6 +155,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const body = await request.json() as {
     content: string;
     pageId: string;
+    pageUrl?: string;
     isSecret?: boolean;
     replyTo?: number;
     turnstileToken?: string;
@@ -231,8 +233,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
 
   // 插入留言
   const result = await env.DB.prepare(
-    `INSERT INTO messages (user_id, page_id, content, is_secret, reply_to, status) VALUES (?, ?, ?, ?, ?, ?)`
-  ).bind(user.userId, body.pageId, content, body.isSecret ? 1 : 0, body.replyTo || null, status).run();
+    `INSERT INTO messages (user_id, page_id, page_url, content, is_secret, reply_to, status) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(user.userId, body.pageId, body.pageUrl || '', content, body.isSecret ? 1 : 0, body.replyTo || null, status).run();
 
   // 返回完整消息对象，便于前端乐观更新
   const dbUser = await env.DB.prepare('SELECT display_name FROM users WHERE id = ?').bind(user.userId).first<{ display_name: string | null }>();
@@ -247,6 +249,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const newMessage = {
     id: result.meta.last_row_id as number,
     pageId: body.pageId,
+    pageUrl: body.pageUrl || '',
     content,
     isSecret: !!body.isSecret,
     status,
