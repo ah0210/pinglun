@@ -41,6 +41,7 @@ export interface DbMessage {
   id: number;
   user_id: number;
   page_id: string;
+  page_url: string;
   content: string;
   is_secret: number;
   status: string;
@@ -127,6 +128,7 @@ export interface ReplyToMessage {
 export interface PublicMessage {
   id: number;
   pageId: string;
+  pageUrl?: string;
   content: string;
   isSecret: boolean;
   status: string;
@@ -203,6 +205,7 @@ export function toPublicMessage(m: DbMessage, u: PublicUser): PublicMessage {
   return {
     id: m.id,
     pageId: m.page_id,
+    pageUrl: m.page_url,
     content: m.content,
     isSecret: m.is_secret === 1,
     status: m.status,

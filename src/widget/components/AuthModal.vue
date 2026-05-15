@@ -159,6 +159,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import { themeSheet } from '../styles/theme';
+import { ensureTurnstileSDK, renderTurnstileWidget, removeTurnstileWidget } from '../utils/turnstile';
 
 export type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
@@ -281,21 +282,6 @@ const modalCSS = `
   min-height: 44px; display: inline-flex; align-items: center;
 }
 .gb-link-btn:active { opacity: 0.7; }
-.gb-divider {
-  display: flex; align-items: center; margin: 16px 0;
-  color: var(--gb-text-secondary, #ccc); font-size: 13px;
-}
-.gb-divider::before, .gb-divider::after {
-  content: ''; flex: 1; height: 1px; background: var(--gb-border, #e8e8e8);
-}
-.gb-divider span { padding: 0 12px; }
-.gb-btn-zhihu {
-  background: var(--gb-bg, #fff); color: var(--gb-text, #333);
-  border: 1px solid var(--gb-border, #e0e0e0); gap: 8px;
-}
-.gb-btn-zhihu:hover { background: var(--gb-bg-secondary, #f7f8fa); }
-.gb-btn-zhihu:active { background: var(--gb-bg-secondary, #f0f1f3); }
-.gb-zhihu-icon { width: 20px; height: 20px; }
 /* 移动端适配 */
 @media (max-width: 480px) {
   .gb-modal-overlay { padding: 0; align-items: flex-end; }
@@ -423,52 +409,53 @@ function handleOverlayTouchEnd(e: TouchEvent) {
 let turnstileWidgetId: string | null = null;
 
 /**
- * 渲染 Turnstile Widget（execute-only 模式）
- * 仅创建 widget，不触发验证。需调用 turnstile.execute() 才开始验证
+ * 渲染 Turnstile 并等待验证 token（render 模式，无竞态）
+ * 先确保 SDK 加载，再 render，callback 直接返回 token
  * @param action - 验证场景标识（login/register/forgot-password）
  * @returns Promise<string> - 验证完成后返回 token，失败/超时返回空串
  */
-function renderTurnstile(action: string): Promise<string> {
-  return new Promise((resolve) => {
-    // 紧急降级模式下跳过 Turnstile 渲染
-    if (props.forceSkipTurnstile) {
-      resolve('');
-      return;
-    }
+async function renderTurnstile(action: string): Promise<string> {
+  if (props.forceSkipTurnstile) return '';
+  if (!props.siteKey) {
+    console.warn('[Guestbook] Turnstile siteKey not configured, skipping captcha');
+    return '';
+  }
 
-    const turnstile = (window as any).turnstile;
-    if (!turnstile) {
-      console.warn('[Guestbook] Turnstile JS not loaded, skipping captcha');
-      resolve('');
-      return;
-    }
-    if (!props.siteKey) {
-      console.warn('[Guestbook] Turnstile siteKey not configured, skipping captcha');
-      resolve('');
-      return;
-    }
+  /** 确保 SDK 已加载 */
+  const sdkReady = await ensureTurnstileSDK();
+  if (!sdkReady) {
+    console.warn('[Guestbook] Turnstile SDK failed to load, skipping captcha');
+    return '';
+  }
 
-    // 先清理旧的 widget
-    removeTurnstileContainer();
+  /** 先清理旧的 widget */
+  removeTurnstileContainer();
 
-    const containerId = `gb-turnstile-modal-${instanceId}`;
-    const container = document.createElement('div');
-    container.id = containerId;
-    container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;';
-    document.body.appendChild(container);
+  const containerId = `gb-turnstile-modal-${instanceId}`;
+  const container = document.createElement('div');
+  container.id = containerId;
+  container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;';
+  document.body.appendChild(container);
 
+  /**
+   * render 模式：render() 时 SDK 自动触发验证，callback 返回 token
+   * 不调 execute()，无竞态
+   */
+  return new Promise<string>((resolve) => {
     const timeout = setTimeout(() => {
       console.warn('[Guestbook] Turnstile verification timed out');
       removeTurnstileContainer();
       resolve('');
-    }, 15000);
+    }, 30000);
 
     try {
+      const turnstile = (window as any).turnstile;
       turnstileWidgetId = turnstile.render(`#${containerId}`, {
         sitekey: props.siteKey,
+        execution: 'render',
         callback: (token: string) => {
           clearTimeout(timeout);
-          resolve(token);
+          resolve(token || '');
         },
         'error-callback': (error: string) => {
           clearTimeout(timeout);
@@ -481,14 +468,8 @@ function renderTurnstile(action: string): Promise<string> {
           resolve('');
         },
         size: 'compact',
-        execution: 'execute',
+        action,
       });
-
-      /**
-       * execute-only 模式：调用 execute() 触发验证挑战
-       * 验证完成后 token 通过上面的 callback 返回
-       */
-      turnstile.execute(turnstileWidgetId);
     } catch (e) {
       clearTimeout(timeout);
       console.warn('[Guestbook] Turnstile render failed:', e);
@@ -498,12 +479,8 @@ function renderTurnstile(action: string): Promise<string> {
 }
 
 function removeTurnstileContainer() {
-  const turnstile = (window as any).turnstile;
-  // 用 widgetId 而非 containerId 来移除（Turnstile API 要求）
-  if (turnstile && turnstileWidgetId) {
-    try { turnstile.remove(turnstileWidgetId); } catch {}
-    turnstileWidgetId = null;
-  }
+  removeTurnstileWidget(turnstileWidgetId);
+  turnstileWidgetId = null;
   const containerId = `gb-turnstile-modal-${instanceId}`;
   const container = document.getElementById(containerId);
   if (container) {
@@ -531,12 +508,6 @@ async function handleLogin() {
   } finally {
     submitting = false;
   }
-}
-
-/** 跳转知乎 OAuth 授权页 */
-function handleZhihuLogin() {
-  close();
-  auth.loginWithZhihu();
 }
 
 async function handleRegister() {

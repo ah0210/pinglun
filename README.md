@@ -1,4 +1,4 @@
-# 自游人留言板（you-guestbook）v1.0.0
+# 自游人留言板（you-guestbook）v1.1.0
 
 基于 **Cloudflare Pages + D1** 的留言板系统，可嵌入 Hugo/FixIt 博客。
 
@@ -6,11 +6,13 @@
 
 - 🚀 Cloudflare Pages + D1 部署，全球 CDN 加速
 - 🔐 JWT 双 Token 认证（Access 15min + Refresh 7d HttpOnly Cookie）
+- 🔑 知乎 OAuth 登录（完整信息直接注册，不完整跳转注册页预填）
+- 📱 手机号注册/用户管理（UNIQUE 占位符防空值冲突）
 - 🎨 Web Component Widget，Shadow DOM 样式隔离，支持主题自动跟随
 - 📝 秘密留言功能（仅隐藏内容，用户信息正常展示）
-- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码、连续重复字符检测
-- 📏 留言字数限制（可配置最少/最多字数）
-- 📊 Naive UI 管理后台（留言审核、用户管理、系统配置、操作日志）
+- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码（execute 模式）、连续重复字符检测
+- 📏 留言字数限制（后端 board_config 统一管理）
+- 📊 Naive UI 管理后台（留言审核+来源、用户管理+手机号+删除、系统配置、操作日志）
 - ✉️ Resend 邮件验证（同步调用，免费 100 封/天，国内投递优化提示见下方）
 - 🔑 找回/重置密码（邮箱发送重置链接，Token Hash 存储，1 小时过期）
 - 📧 修改邮箱（密码验证 + 重新验证 + Gravatar 自动更新）
@@ -18,7 +20,9 @@
 - 🪟 认证弹窗系统（登录/注册/找回密码/重置密码/修改密码/修改邮箱）
 - 🧭 导航栏认证栏（`<gb-auth-bar>` Web Component + `window.GuestBoard` 全局 API）
 - 📱 移动端优化（消除双击延迟、44px 最小触摸区域、`:active` 替代 `:hover`）
-- 🔄 CORS 跨域支持、Gravatar 头像自动生成、API 错误码体系统一
+- 🔄 CORS 跨域支持（`_middleware.ts` 全局拦截 OPTIONS）、Gravatar 头像自动生成、API 错误码体系统一
+- 🌐 留言来源追踪（page_url 自动注入，管理后台可打开来源页）
+- 🔒 跨域 Cookie 正确传递（credentials:'include'）
 
 ## 快速开始
 
@@ -55,9 +59,9 @@ cp .dev.vars.example .dev.vars
 
 ```toml
 database_id = "你的D1数据库ID"
-ALLOWED_ORIGINS = "https://你的博客域名,https://you-guestbook.pages.dev"
-EMAIL_DOMAIN = "你的Resend验证域名"
 ```
+
+> **重要**：`wrangler.toml` 的 `[vars]`（如 `ALLOWED_ORIGINS`、`EMAIL_DOMAIN`）**对 Git 连接部署不生效**，必须在 **Cloudflare Dashboard → Settings → Environment variables** 中配置。
 
 ### 4. 本地开发
 
@@ -123,10 +127,11 @@ hugo server
 ```html
 <guestbook-widget
   api-base="http://localhost:8788"
-  site-key="1x00000000000000000000AA"
   page-id="/your-page"
 />
 ```
+
+> `siteKey` 和 `forceSkipTurnstile` 由 AuthBar 自动从 `/api/v1/config` 获取，无需手动传入。
 
 #### 5.4 快速验证 Widget 是否正常
 
@@ -190,8 +195,8 @@ wrangler secret put TURNSTILE_SECRET_KEY
 
 1. Dashboard → 构建 → 计算 → Workers & Pages → 创建应用程序Create →  (不要选continue with github!) 往下拉看到：想要部署 Pages？点击：开始使用
 2. 导入现有 Git 存储库 从导入现有 Git 存储库开始。 → 从您的帐户部署站点 → 选择一个存储库 `ah0210/pinglun`
-3. 构建设置：构建命令Build command = `pnpm run build`，构建输出目录Output = `dist` 
-4. **环境变量**（Settings → Environment variables）：加密添加 `JWT_SECRET`、`RESEND_API_KEY`、`TURNSTILE_SECRET_KEY`
+3. 构建设置：构建命令Build command = `pnpm run build`，构建输出目录Output = `dist`
+4. **环境变量**（Settings → Environment variables）：加密添加 `JWT_SECRET`、`RESEND_API_KEY`、`TURNSTILE_SECRET_KEY`；普通添加 `ALLOWED_ORIGINS`（如 `https://www.17you.com,https://guestbook.17you.com`）、`EMAIL_DOMAIN`
 5. **D1 绑定**（Settings → Functions → D1 database bindings）：`DB` → `guestbook`
 6. **自定义域名**（Settings → Custom domains）：添加 `guestbook.17you.com`
 7. **初始化数据库**：`pnpm run db:init:remote && pnpm run db:seed:remote`
@@ -220,6 +225,7 @@ Cloudflare 自动构建部署，约 2-3 分钟生效。
 | 回退域名 | `https://pinglun-9ve.pages.dev` |
 | D1 绑定 | `DB` → `guestbook` |
 | 加密变量 | JWT_SECRET / RESEND_API_KEY / TURNSTILE_SECRET_KEY |
+| 普通变量 | ALLOWED_ORIGINS / EMAIL_DOMAIN / ZHIHU_CLIENT_ID / ZHIHU_CLIENT_SECRET |
 | CORS | `https://www.17you.com,https://guestbook.17you.com` |
 
 ### 验证清单
@@ -262,9 +268,7 @@ curl -I https://guestbook.17you.com/api/v1/messages   # 期望 no-store
 
 ## 数据库升级
 
-## 数据库升级
-
-v1.0.0 已将所有表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。
+v1.1.0 已将所有表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。
 
 如果未来版本需要升级数据库，请按以下步骤操作：
 
@@ -374,22 +378,20 @@ GuestbookWidget.init({
   container: '#guestbook',
   pageId: '/about/',              // 当前页面标识，用于区分不同页面的留言
   apiBase: 'https://your-domain.com',
-  siteKey: '0x4AAAAAAA...',       // Turnstile Site Key
-  theme: 'auto',                  // "light" | "dark" | "auto"
-  maxLength: 500
+  theme: 'auto'                   // "light" | "dark" | "auto"
 });
 </script>
 ```
+
+> `maxLength`/`minLength` 由后端 `board_config` 统一管理，前端自动从 `/api/v1/config` 获取。
 
 或直接使用 HTML 标签（需确保 `widget.js` 已加载）：
 
 ```html
 <guestbook-widget
   api-base="https://your-domain.com/api/v1"
-  site-key="0x4AAAAAAA..."
   page-id="/about/"
   theme="auto"
-  max-length="500"
 />
 ```
 
@@ -542,6 +544,8 @@ GuestBoard.unmountAuthBar();
 | GET | `/api/v1/config` | 无 | 留言板配置 |
 | POST | `/api/v1/auth/register` | Turnstile | 用户注册 |
 | POST | `/api/v1/auth/login` | Turnstile | 登录 |
+| GET | `/api/v1/auth/zhihu` | 无 | 知乎 OAuth 授权跳转 |
+| GET | `/api/v1/auth/zhihu/callback` | 无 | 知乎 OAuth 回调 |
 | POST | `/api/v1/auth/refresh` | Cookie | 刷新 Token |
 | POST | `/api/v1/auth/logout` | Cookie | 登出 |
 | GET | `/api/v1/auth/verify-email` | 无 | 邮箱验证 |
@@ -566,8 +570,9 @@ GuestBoard.unmountAuthBar();
 | PATCH | `/api/v1/admin/messages/:id` | 审核留言 |
 | DELETE | `/api/v1/admin/messages/:id` | 删除留言 |
 | POST | `/api/v1/admin/messages/batch-delete` | 批量删除 |
-| GET | `/api/v1/admin/users` | 用户列表 |
+| GET | `/api/v1/admin/users` | 用户列表（含手机号） |
 | PATCH | `/api/v1/admin/users/:id` | 变更角色/状态 |
+| DELETE | `/api/v1/admin/users/:id` | 删除用户（非管理员） |
 | GET/POST | `/api/v1/admin/config` | 系统配置 |
 | POST | `/api/v1/admin/cleanup` | 手动清理 |
 | GET | `/api/v1/admin/logs` | 操作日志 |
@@ -577,15 +582,27 @@ GuestBoard.unmountAuthBar();
 ```
 you-guestbook/
 ├── functions/api/v1/    → 后端 API（Pages Functions）
-│   └── auth/            → 认证相关（注册/登录/找回密码/重置密码/修改邮箱等）
+│   ├── auth/            → 认证（注册/登录/知乎OAuth/找回密码/重置密码/修改邮箱等）
+│   ├── admin/           → 管理员 API（用户管理/留言管理/配置/日志）
+│   ├── messages/        → 留言 CRUD
+│   ├── config.ts        → 公开配置端点
+│   └── _middleware.ts   → 全局 CORS 预检拦截
 ├── lib/                  → 共享工具库
+│   ├── zhihu.ts          → 知乎 OAuth API（字段兜底）
+│   ├── turnstile.ts      → Turnstile 验证（重试+remoteIp）
+│   ├── cors.ts           → CORS 中间件
+│   └── middleware.ts     → API 处理器封装
 ├── sql/                  → 数据库脚本
 ├── src/
 │   ├── widget/           → 留言板 Widget（Web Component）
-│   │   └── components/   → AuthModal / UserDropdown / AuthBar / GuestBoard
+│   │   ├── components/   → AuthModal / UserDropdown / AuthBar / GuestBoard
+│   │   └── composables/ → useAuth / useMessages
 │   ├── admin/            → 管理后台 SPA（Naive UI）
-│   └── shared/           → 共享前端代码
-├── hugo-templates/       → Hugo 集成文件
+│   └── shared/           → 共享前端代码（types / api 封装）
+├── public/               → 静态页面
+│   ├── login.html        → 登录/注册页（Turnstile execute + 知乎预填）
+│   └── admin/            → 管理后台入口
+├── hugo-templates/       → Hugo 集成文件（customPartials 方式）
 └── scheduled.ts          → Cron 定时清理
 ```
 
@@ -620,6 +637,10 @@ you-guestbook/
 - 留言列表移除 `COUNT(*)` 查询（使用 limit+1 判断是否有更多）
 - 邮件模板中 URL 注入防护（仅允许 http/https 协议，使用 URL 对象编码）
 - 异步邮件发送使用 `ctx.waitUntil()` 确保 Workers 不会提前终止
+- 跨域场景所有 fetch 请求 `credentials:'include'`，确保 Cookie 正确发送/接收
+- Turnstile 验证传递 `remoteIp`（`getClientIp`）+ 3 次重试机制
+- 知乎 OAuth 回调字段显式兜底（`|| ''`），防止 undefined 运行时错误
+- 手机号 UNIQUE 约束使用占位符（`_phone_{uid}`），解决空值冲突
 
 ## 系统容错与紧急降级
 

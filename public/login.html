@@ -356,7 +356,7 @@
         document.head.appendChild(script);
       }
 
-      /** 渲染登录 Turnstile Widget（execute-only 模式，点登录时才触发验证） */
+      /** 渲染登录 Turnstile Widget（render 模式，render 时自动触发验证） */
       function renderTurnstileWidget() {
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return;
@@ -365,7 +365,7 @@
           turnstileWidgetId = turnstile.render('#turnstile-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'execute',
+            execution: 'render',
             callback: function() {},
             'error-callback': function() {},
             'expired-callback': function() {}
@@ -375,7 +375,7 @@
         }
       }
 
-      /** 渲染注册 Turnstile Widget（execute-only 模式，点注册时才触发验证） */
+      /** 渲染注册 Turnstile Widget（render 模式，render 时自动触发验证） */
       function renderRegTurnstileWidget() {
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return;
@@ -384,7 +384,7 @@
           turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
             sitekey: turnstileSiteKey,
             size: 'compact',
-            execution: 'execute',
+            execution: 'render',
             callback: function() {},
             'error-callback': function() {},
             'expired-callback': function() {}
@@ -413,8 +413,8 @@
       }
 
       /**
-       * 获取登录 Turnstile token（execute-only 模式）
-       * 调用 turnstile.execute() 触发验证，通过重新 render 注册 callback 接收 token
+       * 获取登录 Turnstile token（render 模式，无竞态）
+       * render 时 SDK 自动触发验证，callback 直接返回 token
        * @returns Promise<string> - token 字符串，失败/超时返回空串
        */
       function getTurnstileToken() {
@@ -422,14 +422,13 @@
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return Promise.resolve('');
         return new Promise(function(resolve) {
-          var timeout = setTimeout(function() { resolve(''); }, 15000);
+          var timeout = setTimeout(function() { resolve(''); }, 30000);
           try {
-            /** 移除旧 widget，重新 render 并注册 callback 接收 token */
             removeTurnstileWidget();
             turnstileWidgetId = turnstile.render('#turnstile-container', {
               sitekey: turnstileSiteKey,
               size: 'compact',
-              execution: 'execute',
+              execution: 'render',
               callback: function(token) {
                 clearTimeout(timeout);
                 resolve(token || '');
@@ -443,13 +442,12 @@
                 resolve('');
               }
             });
-            turnstile.execute(turnstileWidgetId);
           } catch (e) { clearTimeout(timeout); resolve(''); }
         });
       }
 
       /**
-       * 获取注册 Turnstile token（execute-only 模式）
+       * 获取注册 Turnstile token（render 模式，无竞态）
        * @returns Promise<string> - token 字符串，失败/超时返回空串
        */
       function getRegTurnstileToken() {
@@ -457,13 +455,13 @@
         var turnstile = window.turnstile;
         if (!turnstile || !turnstileSiteKey) return Promise.resolve('');
         return new Promise(function(resolve) {
-          var timeout = setTimeout(function() { resolve(''); }, 15000);
+          var timeout = setTimeout(function() { resolve(''); }, 30000);
           try {
             removeRegTurnstileWidget();
             turnstileRegWidgetId = turnstile.render('#turnstile-reg-container', {
               sitekey: turnstileSiteKey,
               size: 'compact',
-              execution: 'execute',
+              execution: 'render',
               callback: function(token) {
                 clearTimeout(timeout);
                 resolve(token || '');
@@ -477,7 +475,6 @@
                 resolve('');
               }
             });
-            turnstile.execute(turnstileRegWidgetId);
           } catch (e) { clearTimeout(timeout); resolve(''); }
         });
       }
