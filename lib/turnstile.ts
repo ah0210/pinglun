@@ -28,29 +28,51 @@ export function shouldSkipTurnstile(secretKey: string, forceSkip?: boolean): boo
   return false;
 }
 
+/**
+ * 向 Cloudflare Turnstile siteverify API 验证 token
+ * @param token - 前端 Turnstile 回调返回的 token
+ * @param secretKey - Turnstile Secret Key
+ * @param remoteIp - 用户真实 IP（通过 CF-Connecting-IP 获取，增强风控精度）
+ * @returns true=验证通过，false=验证失败
+ */
 export async function verifyTurnstile(token: string, secretKey: string, remoteIp?: string): Promise<boolean> {
-  // 未配置 secret key 或使用测试密钥时自动通过
   if (!secretKey || TEST_SECRET_KEYS.has(secretKey)) {
     return true;
   }
 
-  try {
-    const body: Record<string, string> = {
-      secret: secretKey,
-      response: token,
-    };
-    if (remoteIp) body.remoteip = remoteIp;
+  const body: Record<string, string> = {
+    secret: secretKey,
+    response: token,
+  };
+  if (remoteIp) body.remoteip = remoteIp;
 
-    const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(body).toString(),
-    });
+  /**
+   * 最多重试 2 次（共 3 次尝试）
+   * Cloudflare siteverify 偶尔网络超时，重试可覆盖临时故障
+   */
+  const maxRetries = 2;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const resp = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(body).toString(),
+      });
 
-    const data = await resp.json() as { success: boolean };
-    return data.success === true;
-  } catch (error) {
-    console.error('Turnstile verification error:', error);
-    return false;
+      const data = await resp.json() as { success: boolean };
+      if (data.success === true) return true;
+
+      // 验证明确失败（非网络错误），不需要重试
+      return false;
+    } catch (error) {
+      console.error(`Turnstile verification error (attempt ${attempt + 1}/${maxRetries + 1}):`, error);
+      if (attempt < maxRetries) {
+        // 短暂等待后重试
+        await new Promise(r => setTimeout(r, 300));
+        continue;
+      }
+      return false;
+    }
   }
+  return false;
 }

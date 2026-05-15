@@ -98,13 +98,13 @@ export async function apiRequest<T>(
     credentials,
   });
 
-  // 防护：如果响应不是 JSON（如 Cloudflare 返回 HTML 错误页），避免 JSON.parse 崩溃
-  const contentType = resp.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
+  // 防护：尝试解析 JSON，如果响应不是 JSON（如 Cloudflare 返回 HTML 错误页）则返回友好错误
+  let data: ApiResponse<T>;
+  try {
+    data = await resp.json() as ApiResponse<T>;
+  } catch {
     return { success: false, error: { code: -1, message: `请求失败：收到非 JSON 响应 (${resp.status})` } } as ApiResponse<T>;
   }
-
-  const data = await resp.json() as ApiResponse<T>;
 
   // Token 过期，自动刷新
   if (resp.status === 401 && data.error?.code === 1002) {

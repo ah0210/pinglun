@@ -1,5 +1,5 @@
 // functions/api/v1/auth/register.ts — 用户注册
-import { apiHandler } from '../../../../lib/middleware';
+import { apiHandler, getClientIp } from '../../../../lib/middleware';
 import { hashPassword } from '../../../../lib/crypto';
 import { verifyTurnstile, shouldSkipTurnstile } from '../../../../lib/turnstile';
 import { sendEmail, buildVerifyEmailHtml } from '../../../../lib/email';
@@ -31,7 +31,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }
-    const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
+    const turnstileValid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY, getClientIp(request));
     if (!turnstileValid) {
       return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败，请重试', 400);
     }

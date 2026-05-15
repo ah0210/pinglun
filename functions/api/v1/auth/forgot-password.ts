@@ -24,7 +24,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
     }
-    const valid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY);
+    const valid = await verifyTurnstile(body.turnstileToken, env.TURNSTILE_SECRET_KEY, getClientIp(request));
     if (!valid) {
       return errorResponse(ErrorCode.TURNSTILE_FAILED, '验证码验证失败', 400);
     }
