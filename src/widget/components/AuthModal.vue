@@ -49,11 +49,13 @@
             <input v-model="form.confirmPassword" class="gb-input" type="password" required autocomplete="new-password" :id="`${instanceId}-confirm-password`" placeholder="再次输入密码" />
           </div>
           <div v-if="error" class="gb-error">{{ error }}</div>
-          <button class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
+          <div v-if="successMsg" class="gb-success">{{ successMsg }}</div>
+          <button v-if="!successMsg" class="gb-btn gb-btn-primary gb-btn-block" type="submit" :disabled="auth.loading.value">
             {{ auth.loading.value ? '注册中...' : '注册' }}
           </button>
           <div class="gb-modal-links">
-            <button type="button" class="gb-link-btn" @click="switchMode('login')">已有账号？登录</button>
+            <button v-if="successMsg" type="button" class="gb-link-btn" @click="close()">关闭</button>
+            <button v-if="!successMsg" type="button" class="gb-link-btn" @click="switchMode('login')">已有账号？登录</button>
           </div>
         </form>
 
@@ -501,7 +503,8 @@ async function handleRegister() {
       error.value = result.error?.message || '注册失败';
       removeTurnstileContainer();
     } else {
-      close();
+      removeTurnstileContainer();
+      successMsg.value = `注册成功！验证邮件已发送到 ${form.value.email}，请查收后验证邮箱。`;
     }
   } catch (e: any) {
     error.value = e.message || '注册失败';

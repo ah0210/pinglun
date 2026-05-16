@@ -22,8 +22,8 @@
       <button v-if="config?.allowRegistration !== false" class="gb-btn gb-btn-outline gb-btn-sm" @click="openAuthModal('register')">注册</button>
     </div>
 
-    <!-- 已登录但邮箱未验证：提示区 -->
-    <div v-if="auth.user.value && !auth.user.value.emailVerified && auth.user.value.role !== 'admin'" class="gb-verify-prompt">
+    <!-- 已登录但邮箱未验证（且配置要求验证）：提示区 -->
+    <div v-if="auth.user.value && !auth.user.value.emailVerified && auth.user.value.role !== 'admin' && config?.requireEmailVerification !== false" class="gb-verify-prompt">
       <div class="gb-verify-text">⚠️ 请先验证邮箱才能留言</div>
       <div class="gb-verify-email">📧 当前邮箱：{{ maskEmail(auth.user.value.email) }}</div>
       <div class="gb-verify-actions">
@@ -34,9 +34,9 @@
       </div>
     </div>
 
-    <!-- 已登录且邮箱已验证（或管理员）：留言输入 -->
+    <!-- 已登录且（邮箱已验证 / 管理员 / 配置不要求验证）：留言输入 -->
     <MessageForm
-      v-if="auth.user.value && (auth.user.value.emailVerified || auth.user.value.role === 'admin')"
+      v-if="auth.user.value && (auth.user.value.emailVerified || auth.user.value.role === 'admin' || config?.requireEmailVerification === false)"
       :api-base="resolvedApiBase"
       :page-id="pageId"
       :site-key="resolvedSiteKey"

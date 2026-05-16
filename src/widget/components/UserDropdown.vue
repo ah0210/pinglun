@@ -204,7 +204,7 @@ onUnmounted(() => {
 }
 
 .gb-dropdown-header {
-  padding: 8px 14px;
+  padding: 6px 14px 4px;
 }
 
 .gb-dropdown-username {
@@ -223,14 +223,15 @@ onUnmounted(() => {
 }
 
 .gb-dropdown-verified {
-  margin-top: 2px;
+  margin-top: 0px;
 }
 
 .gb-badge {
   display: inline-block;
   font-size: 11px;
-  padding: 1px 8px;
+  padding: 0px 6px;
   border-radius: 10px;
+  line-height: 1.5;
 }
 .gb-badge-success {
   background: rgba(39, 174, 96, 0.1);
