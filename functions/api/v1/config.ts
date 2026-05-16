@@ -1,7 +1,7 @@
 // functions/api/v1/config.ts — 留言板公开配置
 import { apiHandler } from '../../../lib/middleware';
 import { successResponse } from '../../../lib/response';
-import { cacheHeaders } from '../../../lib/cache-headers';
+import { noCacheHeaders } from '../../../lib/cache-headers';
 import type { Env, DbBoardConfig } from '../../../lib/types';
 
 export const onRequestGet = apiHandler(async (request, env) => {
@@ -21,7 +21,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
       requireEmailVerification: true,
       forceSkipTurnstile: false,
       turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
-    }, cacheHeaders(300));
+    }, noCacheHeaders());
   }
 
   const c = config;
@@ -36,5 +36,5 @@ export const onRequestGet = apiHandler(async (request, env) => {
     requireEmailVerification: c.require_email_verification === 1,
     forceSkipTurnstile: c.force_skip_turnstile === 1,
     turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
-  }, cacheHeaders(300));
+  }, noCacheHeaders());
 }, { requireAuth: false });

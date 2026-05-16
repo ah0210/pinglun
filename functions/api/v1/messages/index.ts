@@ -199,7 +199,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.MESSAGE_REPEATED_CHARS, '留言不能包含过多连续重复字符', 400);
   }
 
-  // 验证码检查（未配置 Turnstile 或管理员开启紧急降级时跳过）
+  // 验证码检查（仅管理员开启紧急降级时跳过）
   if (config?.require_captcha && !shouldSkipTurnstile(env.TURNSTILE_SECRET_KEY || '', config?.force_skip_turnstile === 1)) {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);

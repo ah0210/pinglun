@@ -626,6 +626,12 @@
         btnLogin.textContent = '登录中...';
 
         getTurnstileToken().then(function(turnstileToken) {
+          if (!forceSkipTurnstile && !turnstileToken) {
+            showError('验证码验证失败，请重试');
+            btnLogin.disabled = false;
+            btnLogin.textContent = '登 录';
+            return;
+          }
           fetch(API_BASE + '/api/v1/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -646,6 +652,10 @@
             btnLogin.disabled = false;
             btnLogin.textContent = '登 录';
           });
+        }).catch(function() {
+          showError('验证码验证失败，请重试');
+          btnLogin.disabled = false;
+          btnLogin.textContent = '登 录';
         });
       });
 
@@ -701,6 +711,12 @@
         btnRegister.textContent = '注册中...';
 
         getRegTurnstileToken().then(function(turnstileToken) {
+          if (!forceSkipTurnstile && !turnstileToken) {
+            showError('验证码验证失败，请重试');
+            btnRegister.disabled = false;
+            btnRegister.textContent = '注 册';
+            return;
+          }
           fetch(API_BASE + '/api/v1/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -721,6 +737,10 @@
             btnRegister.disabled = false;
             btnRegister.textContent = '注 册';
           });
+        }).catch(function() {
+          showError('验证码验证失败，请重试');
+          btnRegister.disabled = false;
+          btnRegister.textContent = '注 册';
         });
       });
 

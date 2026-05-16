@@ -30,7 +30,7 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import type { PublicUser } from '../../shared/types';
-import { ensureTurnstileSDK, removeTurnstileWidget } from '../utils/turnstile';
+import { getTurnstileToken } from '../utils/turnstile';
 
 const props = defineProps<{
   apiBase: string;
@@ -69,56 +69,9 @@ async function handleSubmit() {
     // 获取 Turnstile token（如果需要）
     let turnstileToken = '';
     if (props.requireCaptcha && props.siteKey) {
-      /** 确保 SDK 已加载 */
-      const sdkReady = await ensureTurnstileSDK();
-      if (sdkReady && (window as any).turnstile) {
-        turnstileToken = await new Promise<string>((resolve) => {
-          const containerId = `gb-turnstile-msg-${Date.now()}`;
-          const el = document.createElement('div');
-          el.id = containerId;
-          el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
-          document.body.appendChild(el);
-
-          let widgetId: string | null = null;
-          const cleanup = () => {
-            removeTurnstileWidget(widgetId);
-            widgetId = null;
-            el.remove();
-          };
-
-          const timeout = setTimeout(() => {
-            cleanup();
-            resolve('');
-          }, 30000);
-
-          try {
-            widgetId = (window as any).turnstile.render(`#${containerId}`, {
-              sitekey: props.siteKey,
-              execution: 'render',
-              callback: (token: string) => {
-                clearTimeout(timeout);
-                cleanup();
-                resolve(token || '');
-              },
-              'error-callback': () => {
-                clearTimeout(timeout);
-                cleanup();
-                resolve('');
-              },
-              'expired-callback': () => {
-                clearTimeout(timeout);
-                cleanup();
-                resolve('');
-              },
-              size: 'compact',
-            });
-          } catch {
-            clearTimeout(timeout);
-            cleanup();
-            resolve('');
-          }
-        });
-      }
+      turnstileToken = await getTurnstileToken(props.siteKey, { action: 'message' });
+    } else if (props.requireCaptcha) {
+      throw new Error('验证码未配置，请联系管理员');
     }
 
     const result = await props.messages.postMessage({

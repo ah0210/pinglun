@@ -10,7 +10,7 @@
 - 📱 手机号注册/用户管理（UNIQUE 占位符防空值冲突）
 - 🎨 Web Component Widget，Shadow DOM 样式隔离，支持主题自动跟随
 - 📝 秘密留言功能（仅隐藏内容，用户信息正常展示）
-- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码（execute 模式）、连续重复字符检测
+- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码（explicit render 模式）、连续重复字符检测
 - 📏 留言字数限制（后端 board_config 统一管理）
 - 📊 Naive UI 管理后台（留言审核+来源、用户管理+手机号+删除、系统配置、操作日志）
 - ✉️ Resend 邮件验证（同步调用，免费 100 封/天，国内投递优化提示见下方）
@@ -104,8 +104,7 @@ npx wrangler d1 execute guestbook --remote --command "SELECT * FROM users"
 # 添加本地 CORS 来源（Hugo 默认端口 1313）
 ALLOWED_ORIGINS=http://localhost:1313,https://你的生产域名
 
-# Turnstile 不支持 localhost，改用 Cloudflare 官方测试密钥
-# 1x...AA = 交互式挑战（测试用），2x...AA = 自动通过
+# Turnstile 本地开发建议使用 Cloudflare 官方测试密钥（Site Key 与 Secret Key 必须配套）
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 ```
@@ -600,7 +599,7 @@ you-guestbook/
 │   ├── admin/            → 管理后台 SPA（Naive UI）
 │   └── shared/           → 共享前端代码（types / api 封装）
 ├── public/               → 静态页面
-│   ├── login.html        → 登录/注册页（Turnstile execute + 知乎预填）
+│   ├── login.html        → 登录/注册页（Turnstile explicit render + 知乎预填）
 │   └── admin/            → 管理后台入口
 ├── hugo-templates/       → Hugo 集成文件（customPartials 方式）
 └── scheduled.ts          → Cron 定时清理
@@ -638,7 +637,7 @@ you-guestbook/
 - 邮件模板中 URL 注入防护（仅允许 http/https 协议，使用 URL 对象编码）
 - 异步邮件发送使用 `ctx.waitUntil()` 确保 Workers 不会提前终止
 - 跨域场景所有 fetch 请求 `credentials:'include'`，确保 Cookie 正确发送/接收
-- Turnstile 验证传递 `remoteIp`（`getClientIp`）+ 3 次重试机制
+- Turnstile 验证传递 `remoteIp`（`getClientIp`），失败会记录 Cloudflare 返回的 `error-codes`
 - 知乎 OAuth 回调字段显式兜底（`|| ''`），防止 undefined 运行时错误
 - 手机号 UNIQUE 约束使用占位符（`_phone_{uid}`），解决空值冲突
 
@@ -658,7 +657,7 @@ Admin 后台「系统配置」页面新增两个紧急降级开关：
 | 开关 | 作用 | 使用场景 |
 |------|------|---------|
 | **邮箱验证** | 关闭后用户无需验证邮箱即可留言 | Resend 宕机或邮件投递大面积失败时 |
-| **🚨 跳过验证码** | 关闭后所有操作跳过 Turnstile 验证 | Turnstile API 宕机导致注册/登录/发帖全部不可用时 |
+| **🚨 跳过验证码** | 开启后所有操作跳过 Turnstile 验证 | Turnstile API 宕机导致注册/登录/发帖全部不可用时 |
 
 > ⚠️ 跳过验证码是紧急降级措施，仅在确认第三方服务不可用时临时开启，恢复后应立即关闭。
 

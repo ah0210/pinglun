@@ -159,7 +159,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 import { useAuth } from '../composables/useAuth';
 import { themeSheet } from '../styles/theme';
-import { ensureTurnstileSDK, renderTurnstileWidget, removeTurnstileWidget } from '../utils/turnstile';
+import { getTurnstileToken, removeTurnstileWidget } from '../utils/turnstile';
 
 export type AuthModalMode = 'login' | 'register' | 'forgot-password' | 'reset-password' | 'change-display-name' | 'change-password' | 'change-email';
 
@@ -416,66 +416,7 @@ let turnstileWidgetId: string | null = null;
  */
 async function renderTurnstile(action: string): Promise<string> {
   if (props.forceSkipTurnstile) return '';
-  if (!props.siteKey) {
-    console.warn('[Guestbook] Turnstile siteKey not configured, skipping captcha');
-    return '';
-  }
-
-  /** 确保 SDK 已加载 */
-  const sdkReady = await ensureTurnstileSDK();
-  if (!sdkReady) {
-    console.warn('[Guestbook] Turnstile SDK failed to load, skipping captcha');
-    return '';
-  }
-
-  /** 先清理旧的 widget */
-  removeTurnstileContainer();
-
-  const containerId = `gb-turnstile-modal-${instanceId}`;
-  const container = document.createElement('div');
-  container.id = containerId;
-  container.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:99999;';
-  document.body.appendChild(container);
-
-  /**
-   * render 模式：render() 时 SDK 自动触发验证，callback 返回 token
-   * 不调 execute()，无竞态
-   */
-  return new Promise<string>((resolve) => {
-    const timeout = setTimeout(() => {
-      console.warn('[Guestbook] Turnstile verification timed out');
-      removeTurnstileContainer();
-      resolve('');
-    }, 30000);
-
-    try {
-      const turnstile = (window as any).turnstile;
-      turnstileWidgetId = turnstile.render(`#${containerId}`, {
-        sitekey: props.siteKey,
-        execution: 'render',
-        callback: (token: string) => {
-          clearTimeout(timeout);
-          resolve(token || '');
-        },
-        'error-callback': (error: string) => {
-          clearTimeout(timeout);
-          console.warn('[Guestbook] Turnstile error:', error);
-          resolve('');
-        },
-        'expired-callback': () => {
-          clearTimeout(timeout);
-          console.warn('[Guestbook] Turnstile token expired');
-          resolve('');
-        },
-        size: 'compact',
-        action,
-      });
-    } catch (e) {
-      clearTimeout(timeout);
-      console.warn('[Guestbook] Turnstile render failed:', e);
-      resolve('');
-    }
-  });
+  return getTurnstileToken(props.siteKey, { action });
 }
 
 function removeTurnstileContainer() {
@@ -505,6 +446,9 @@ async function handleLogin() {
     } else {
       close();
     }
+  } catch (e: any) {
+    error.value = e.message || '登录失败';
+    removeTurnstileContainer();
   } finally {
     submitting = false;
   }
@@ -559,6 +503,9 @@ async function handleRegister() {
     } else {
       close();
     }
+  } catch (e: any) {
+    error.value = e.message || '注册失败';
+    removeTurnstileContainer();
   } finally {
     submitting = false;
   }
@@ -579,6 +526,9 @@ async function handleForgotPassword() {
       error.value = result.error?.message || '操作失败';
       removeTurnstileContainer();
     }
+  } catch (e: any) {
+    error.value = e.message || '操作失败';
+    removeTurnstileContainer();
   } finally {
     submitting = false;
   }
@@ -704,12 +654,6 @@ onMounted(() => {
     window.history.replaceState({}, '', url.toString());
   }
 
-  // 加载 Turnstile 脚本
-  if (!document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) {
-    const script = document.createElement('script');
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-    document.head.appendChild(script);
-  }
 });
 
 onUnmounted(() => {

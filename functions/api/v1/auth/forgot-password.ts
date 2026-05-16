@@ -16,7 +16,7 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
 
   const email = sanitizeEmail(body.email);
 
-  // Turnstile 验证（未配置、测试密钥或管理员开启紧急降级时跳过）
+  // Turnstile 验证（仅管理员开启紧急降级时跳过）
   const turnstileConfig = await env.DB.prepare(
     'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
   ).first<{ force_skip_turnstile: number }>();

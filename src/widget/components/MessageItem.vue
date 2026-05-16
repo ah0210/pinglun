@@ -63,6 +63,7 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref } from 'vue';
 import type { PublicMessage, PublicUser } from '../../shared/types';
+import { getTurnstileToken } from '../utils/turnstile';
 
 const props = defineProps<{
   message: PublicMessage;
@@ -118,54 +119,10 @@ async function handleReplySubmit() {
   try {
     // 获取 Turnstile token（如果需要）
     let turnstileToken = '';
-    if (props.requireCaptcha && (window as any).turnstile && props.siteKey) {
-      turnstileToken = await new Promise<string>((resolve) => {
-        const containerId = `gb-turnstile-reply-${Date.now()}`;
-        const el = document.createElement('div');
-        el.id = containerId;
-        el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;';
-        document.body.appendChild(el);
-
-        let widgetId: string | null = null;
-        const cleanup = () => {
-          if (widgetId) {
-            try { (window as any).turnstile.remove(widgetId); } catch {}
-          }
-          el.remove();
-        };
-
-        const timeout = setTimeout(() => {
-          cleanup();
-          resolve('');
-        }, 15000);
-
-        try {
-          widgetId = (window as any).turnstile.render(`#${containerId}`, {
-            sitekey: props.siteKey,
-            callback: (token: string) => {
-              clearTimeout(timeout);
-              cleanup();
-              resolve(token);
-            },
-            'error-callback': () => {
-              clearTimeout(timeout);
-              cleanup();
-              resolve('');
-            },
-            'expired-callback': () => {
-              clearTimeout(timeout);
-              cleanup();
-              resolve('');
-            },
-            size: 'compact',
-            execution: 'render',
-          });
-        } catch {
-          clearTimeout(timeout);
-          cleanup();
-          resolve('');
-        }
-      });
+    if (props.requireCaptcha && props.siteKey) {
+      turnstileToken = await getTurnstileToken(props.siteKey, { action: 'reply' });
+    } else if (props.requireCaptcha) {
+      throw new Error('验证码未配置，请联系管理员');
     }
 
     const result = await props.messages.postMessage({

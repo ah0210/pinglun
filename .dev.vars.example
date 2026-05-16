@@ -5,8 +5,8 @@ JWT_SECRET=your-local-dev-secret-at-least-32-chars
 RESEND_API_KEY=re_xxxxxxxxxxxxx
 
 # === 验证码（Turnstile）===
-TURNSTILE_SECRET_KEY=0x4AAAAAAxxxxxxxx
-TURNSTILE_SITE_KEY=0x4AAAAAAxxxxxxxx
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+TURNSTILE_SITE_KEY=1x00000000000000000000AA
 
 # === 管理员初始账号（首次 setup 时使用）===
 ADMIN_USERNAME=admin

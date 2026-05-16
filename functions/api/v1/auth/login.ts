@@ -40,7 +40,7 @@ export const onRequestPost = apiHandler(async (request, env) => {
     return errorResponse(ErrorCode.RATE_LIMITED, `登录失败次数过多，请 ${remaining} 秒后重试`, 429);
   }
 
-  // Turnstile 验证（未配置、测试密钥或管理员开启紧急降级时跳过）
+  // Turnstile 验证（仅管理员开启紧急降级时跳过）
   const turnstileConfig = await env.DB.prepare(
     'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
   ).first<{ force_skip_turnstile: number }>();
