@@ -64,6 +64,7 @@ const columns: DataTableColumns<any> = [
   { title: '用户', key: 'user', width: 120, render: (row) => row.user?.displayName || row.user?.username },
   { title: '内容', key: 'content', ellipsis: { tooltip: true } },
   { title: '页面来源', key: 'pageId', width: 150, ellipsis: { tooltip: true } },
+  { title: 'IP', key: 'ipAddress', width: 130, render: (row) => row.ipAddress || '-' },
   { title: '打开', key: 'open', width: 60, render: (row) => {
     const pageUrl = row.pageUrl || '';
     if (!pageUrl) return '-';

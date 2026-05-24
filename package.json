@@ -13,8 +13,10 @@
     "preview": "wrangler pages dev dist",
     "db:init": "wrangler d1 execute guestbook --local --file=sql/001_init.sql",
     "db:seed": "wrangler d1 execute guestbook --local --file=sql/002_seed.sql",
+    "db:migrate:ip": "wrangler d1 execute guestbook --local --file=sql/003_add_message_ip.sql",
     "db:init:remote": "wrangler d1 execute guestbook --remote --file=sql/001_init.sql",
     "db:seed:remote": "wrangler d1 execute guestbook --remote --file=sql/002_seed.sql",
+    "db:migrate:ip:remote": "wrangler d1 execute guestbook --remote --file=sql/003_add_message_ip.sql",
     "test:widget": "pnpm run build && pnpm run preview"
   },
   "dependencies": {

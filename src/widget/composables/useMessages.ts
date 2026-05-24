@@ -75,6 +75,7 @@ export function useMessages(apiBase: string) {
     if (resp.success) {
       // 发帖成功后重新拉取列表（从首页开始）
       await fetchMessages(data.pageId, '', 20, false);
+      (window as any).GuestbookCounts?.refresh?.();
     }
     return resp;
   }

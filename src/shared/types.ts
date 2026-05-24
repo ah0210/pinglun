@@ -16,18 +16,20 @@ export interface ReplyToMessage {
   id: number;
   username: string;
   displayName: string;
-  content: string;
+  content: string | null;
   isSecret: boolean;
+  status: string;
 }
 
 export interface PublicMessage {
   id: number;
   pageId: string;
   pageUrl?: string;
-  content: string;
+  content: string | null;
   isSecret: boolean;
   status: string;
   replyTo: number | null;
+  ipAddress?: string;
   replyToMessage?: ReplyToMessage;
   createdAt: string;
   updatedAt: string | null;

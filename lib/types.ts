@@ -46,6 +46,7 @@ export interface DbMessage {
   is_secret: number;
   status: string;
   reply_to: number | null;
+  ip_address: string;
   created_at: string;
   updated_at: string | null;
 }
@@ -121,15 +122,16 @@ export interface PublicUser {
 export interface ReplyToMessage {
   id: number;
   username: string;
-  content: string;
+  content: string | null;
   isSecret: boolean;
+  status: string;
 }
 
 export interface PublicMessage {
   id: number;
   pageId: string;
   pageUrl?: string;
-  content: string;
+  content: string | null;
   isSecret: boolean;
   status: string;
   replyTo: number | null;

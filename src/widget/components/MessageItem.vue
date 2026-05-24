@@ -8,6 +8,7 @@
         <span v-if="message.user.role === 'admin'" class="gb-admin-badge">管理员</span>
         <span v-if="message.isSecret" class="gb-secret-badge">🔒 秘密</span>
         <span v-if="message.status === 'pending'" class="gb-status-pending">⏳ 审核中</span>
+        <span v-if="message.status === 'rejected'" class="gb-status-rejected">未通过</span>
         <span class="gb-time">{{ formatTime(message.createdAt) }}</span>
       </div>
     </div>
@@ -16,12 +17,12 @@
     <div v-if="message.replyToMessage" class="gb-reply-quote">
       <span class="gb-reply-quote-user">@{{ message.replyToMessage.displayName || message.replyToMessage.username }}</span>
       <span class="gb-reply-quote-content">
-        {{ message.replyToMessage.isSecret && isReplySecretHidden ? '🔒 这是一条秘密留言' : message.replyToMessage.content }}
+        {{ replyDisplayContent }}
       </span>
     </div>
 
     <p class="gb-message-content" :class="{ 'gb-secret-placeholder': isSecretHidden }">
-      {{ isSecretHidden ? '🔒 这是一条秘密留言' : message.content }}
+      {{ displayContent }}
     </p>
 
     <!-- 回复按钮（仅登录用户可见） -->
@@ -89,8 +90,49 @@ const isSecretHidden = computed(() => {
   return true;
 });
 
-// 被回复留言的秘密内容 — 后端已按权限处理
-const isReplySecretHidden = computed(() => false);
+/**
+ * 主留言显示内容（后端脱敏后 content 可能为 null）
+ * - content 非空 → 直接显示（公开已审核留言）
+ * - content 为 null + isSecret → 显示秘密留言占位
+ * - content 为 null + status pending → 显示审核中占位
+ * - content 为 null + status rejected → 显示未通过占位
+ */
+const displayContent = computed(() => {
+  if (props.message.content !== null && props.message.content !== undefined) {
+    return props.message.content;
+  }
+  if (props.message.isSecret) {
+    return '🔒 这是一条秘密留言';
+  }
+  if (props.message.status === 'pending') {
+    return '⏳ 留言正在审核中';
+  }
+  if (props.message.status === 'rejected') {
+    return '🚫 留言未通过审核';
+  }
+  return '';
+});
+
+/**
+ * 被回复留言显示内容（同逻辑）
+ */
+const replyDisplayContent = computed(() => {
+  const reply = props.message.replyToMessage;
+  if (!reply) return '';
+  if (reply.content !== null && reply.content !== undefined) {
+    return reply.content;
+  }
+  if (reply.isSecret) {
+    return '🔒 这是一条秘密留言';
+  }
+  if (reply.status === 'pending') {
+    return '⏳ 留言正在审核中';
+  }
+  if (reply.status === 'rejected') {
+    return '🚫 留言未通过审核';
+  }
+  return '';
+});
 
 const replyContentLen = computed(() => replyContent.value.trim().length);
 const canReplySubmit = computed(() => {
@@ -183,6 +225,7 @@ function formatTime(dateStr: string): string {
   background: var(--gb-primary, #4a6cf7); color: #fff; margin-left: 6px;
 }
 .gb-status-pending { color: var(--gb-warning, #f39c12); font-size: 12px; }
+.gb-status-rejected { color: var(--gb-danger, #e74c3c); font-size: 12px; margin-left: 6px; }
 
 .gb-message-content {
   margin: 0; line-height: 1.6; word-break: break-word; color: var(--gb-text, #333);

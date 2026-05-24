@@ -1,0 +1,10 @@
+{{- if .Site.Params.guestbook.enable | default false -}}
+{{- $pageId := .RelPermalink -}}
+{{- $format := .Site.Params.guestbook.countFormat | default "{count}" -}}
+<span
+  class="guestbook-count"
+  data-guestbook-count
+  data-page-id="{{ $pageId }}"
+  data-format="{{ $format }}"
+>0</span>
+{{- end -}}

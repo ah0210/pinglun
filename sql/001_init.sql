@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS messages (
   is_secret  INTEGER DEFAULT 0,
   status     TEXT DEFAULT 'approved',
   reply_to   INTEGER DEFAULT NULL,
+  ip_address TEXT DEFAULT '',
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT NULL
 );
@@ -106,6 +107,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_messages_page ON messages(page_id);
+CREATE INDEX IF NOT EXISTS idx_messages_page_created ON messages(page_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_secret ON messages(is_secret);

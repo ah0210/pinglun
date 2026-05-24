@@ -50,6 +50,7 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     isSecret: m.is_secret === 1,
     status: m.status,
     replyTo: m.reply_to,
+    ipAddress: m.ip_address || '',
     createdAt: m.created_at,
     updatedAt: m.updated_at,
     user: {

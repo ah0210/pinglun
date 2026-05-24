@@ -3,7 +3,7 @@
   <div class="gb-container">
     <!-- 头部：标题 + 用户栏 -->
     <div class="gb-header">
-      <h2 class="gb-title">{{ config?.siteName || '留言板' }}</h2>
+      <h2 class="gb-title">{{ config?.siteName || '留言板' }} <span class="gb-count">{{ messageCountLabel }}</span></h2>
       <div v-if="auth.user.value" class="gb-user-bar">
         <UserDropdown
           :user="auth.user.value"
@@ -169,6 +169,32 @@ function onLoadMore() {
   messages.loadMore(props.pageId);
 }
 
+/**
+ * 向宿主页面发射评论计数事件
+ * composed:true 使事件穿透 Shadow DOM 到达 document
+ */
+function emitCommentCount() {
+  const count = messages.messages.value.length;
+  const hasMore = messages.hasMore.value;
+  document.dispatchEvent(new CustomEvent('gb-comment-count', {
+    detail: { count, hasMore, pageId: props.pageId },
+    bubbles: true,
+    composed: true,
+  }));
+}
+
+/** 留言计数标签：hasMore=false 显示精确数，hasMore=true 显示 N+ */
+const messageCountLabel = computed(() => {
+  const count = messages.messages.value.length;
+  if (count === 0) return '';
+  return messages.hasMore.value ? `${count}+` : `${count}`;
+});
+
+/** 留言列表变化时自动发射计数事件（发帖/加载更多/删除后） */
+watch(() => messages.messages.value.length, () => {
+  emitCommentCount();
+});
+
 onMounted(async () => {
   const el = getCurrentInstance()!.proxy!.$el as HTMLElement;
   adoptTheme(el.getRootNode() as ShadowRoot);
@@ -205,6 +231,12 @@ onMounted(async () => {
   margin: 0;
   color: var(--gb-text);
   flex: 1;
+}
+.gb-count {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--gb-text-secondary, #999);
+  margin-left: 4px;
 }
 
 /* 未登录提示 */

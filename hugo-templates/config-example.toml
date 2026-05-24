@@ -7,6 +7,8 @@
   apiBase = "https://guestbook.17you.com"           # 留言板服务地址（自动补全 /api/v1）
   siteKey = "0x4AAAAAADKEiieQVd99LXKI"              # Turnstile Site Key
   theme = "auto"                                     # "light" | "dark" | "auto"
+  countFormat = "{count} 条留言"                      # 列表页留言数量显示格式
+  commentCount = true                                # 内容页文章元信息区显示评论数
 
 # ===== FixIt 主题 customPartials 注入点 =====
 # 将留言板模板文件放到 layouts/partials/custom/ 目录下
@@ -20,4 +22,36 @@
   comment = ["custom/guestbook.html"]                                 # 评论区留言板
   footer = []                                                         # 页脚
   widgets = []                                                        # 小工具区域
-  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+主题同步
+  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+评论计数+暗色同步
+
+# ===== 评论数显示 =====
+#
+# --- 内容页（文章标题下方）---
+# 在 FixIt 主题的文章元信息模板中加入（如 layouts/partials/single/post-meta.html）：
+#
+#   {{- else if .Site.Params.guestbook.commentCount | default false -}}
+#     <span class="comment-count" data-flag-title="{{ $title }}">
+#       {{ $commentIcon }}<span class="guestbook-comment-count" data-path="{{ .RelPermalink }}">0</span>&nbsp;{{ T "single.comments" }}
+#     </span>&nbsp;
+#   {{- end -}}
+#
+# 工作原理（零额外 API 请求）：
+#   1. 页面渲染时 .guestbook-comment-count[data-path] 显示初始值 "0"
+#   2. Widget 加载留言列表后发射 gb-comment-count 事件（含 count + hasMore + pageId）
+#   3. guestbook-footer.html 监听该事件，自动将实际评论数填入
+#   4. hasMore=true 时显示 "N+"（还有更多未加载），hasMore=false 时显示精确数 "N"
+#   5. 发帖/加载更多后自动更新
+#
+# --- 列表页（每篇文章摘要卡片）---
+# 在文章列表模板中加入：
+#   {{- partial "custom/guestbook-count.html" . -}}
+# 列表页使用 guestbook-count.js + GET /messages/counts API 批量查询
+# 结果被 CDN 缓存 5 分钟，同页面组合的请求不穿透 D1
+#
+# --- pjax/swup 翻页支持 ---
+# guestbook-count.js 和 guestbook-footer.html 均监听 pjax:complete / swup:contentReplaced 事件
+# 翻页后自动重新扫描新出现的计数元素并填充，无需额外配置
+#
+# --- CDN 缓存 ---
+# 留言列表 API (GET /messages): 后端脱敏 + CDN 缓存 300s，零隐私泄露风险
+# 评论数 API (GET /messages/counts): CDN 缓存 300s，批量查询性能优

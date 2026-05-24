@@ -20,24 +20,11 @@ export const onRequestGet = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
   }
 
-  // 秘密留言权限检查
-  if (message.is_secret === 1) {
-    if (!user) {
-      return errorResponse(ErrorCode.UNAUTHORIZED, '请先登录', 401);
-    }
-    if (user.role !== 'admin' && message.user_id !== user.userId) {
-      return errorResponse(ErrorCode.FORBIDDEN, '无权查看此留言', 403);
-    }
-  }
-
-  // 非审核通过的留言：仅管理员和留言作者可见
-  if (message.status !== 'approved' && user?.role !== 'admin' && message.user_id !== user?.userId) {
-    return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
-  }
-
   let content = message.content;
-  if (message.is_secret === 1 && user && user.role !== 'admin' && message.user_id !== user.userId) {
-    content = '[这是一条秘密留言]';
+  if (user?.role !== 'admin' && message.status !== 'approved') {
+    content = message.status === 'pending' ? '⏳ 留言正在审核中' : '🚫 留言未通过审核';
+  } else if (message.is_secret === 1 && (!user || (user.role !== 'admin' && message.user_id !== user.userId))) {
+    content = '🔒 这是一条秘密留言';
   }
 
   return successResponse({

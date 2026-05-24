@@ -1,34 +1,72 @@
 <!-- Hugo: layouts/partials/custom/guestbook-footer.html -->
-<!-- 页面底部：widget.js 懒加载 + 暗色模式自动同步 -->
+<!-- 页面底部：widget.js 懒加载 + 评论计数同步 + 暗色模式自动同步 -->
 {{- if .Site.Params.guestbook.enable | default false }}
 {{- $widgetHost := .Site.Params.guestbook.apiBase | default "https://guestbook.17you.com" -}}
 {{- $theme := .Site.Params.guestbook.theme | default "auto" -}}
 <script>
+window.GUESTBOOK_API_BASE = '{{ $widgetHost }}';
+</script>
+<script src="{{ $widgetHost }}/guestbook-count.js" defer></script>
+<script>
 (function() {
   var widgetUrl = '{{ $widgetHost }}/widget.js';
+  var widgetLoaded = false;
 
-  /** 懒加载：当留言板容器即将进入视口时再加载 widget.js */
-  var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        observer.disconnect();
-        var script = document.createElement('script');
-        script.src = widgetUrl;
-        script.defer = true;
-        document.head.appendChild(script);
-      }
+  /**
+   * 监听 Widget 发射的 gb-comment-count 事件
+   * 更新 FixIt 主题文章元信息区的 .guestbook-comment-count[data-path] 元素
+   * 事件由 GuestBoard.ce.vue 在留言列表加载/变化时发射
+   */
+  document.addEventListener('gb-comment-count', function(e) {
+    var detail = e.detail || {};
+    var count = detail.count || 0;
+    var hasMore = !!detail.hasMore;
+    var label = count === 0 ? '0' : (hasMore ? count + '+' : String(count));
+    document.querySelectorAll('.guestbook-comment-count[data-path]').forEach(function(el) {
+      var path = el.getAttribute('data-path');
+      if (path && detail.pageId && path !== detail.pageId) return;
+      el.textContent = label;
     });
-  }, { rootMargin: '200px' });
-
-  document.querySelectorAll('guestbook-widget, gb-auth-bar, [id^="guestbook-"]').forEach(function(el) {
-    observer.observe(el);
   });
+
+  /** 加载 widget.js（只加载一次） */
+  function loadWidget() {
+    if (widgetLoaded) return;
+    widgetLoaded = true;
+    var script = document.createElement('script');
+    script.src = widgetUrl;
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  /**
+   * 懒加载：当留言板容器即将进入视口时再加载 widget.js
+   * 支持多次调用（pjax 翻页后新元素也需要 observe）
+   */
+  function observeWidget() {
+    var targets = document.querySelectorAll('guestbook-widget, gb-auth-bar, [id^="guestbook-"]');
+    if (!targets.length) return;
+    if (widgetLoaded) return;
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          loadWidget();
+        }
+      });
+    }, { rootMargin: '200px' });
+
+    targets.forEach(function(el) { observer.observe(el); });
+  }
 
   /** 降级：不支持 IntersectionObserver 的浏览器直接 defer 加载 */
   if (!('IntersectionObserver' in window)) {
-    var s = document.createElement('script');
-    s.src = widgetUrl; s.defer = true;
-    document.head.appendChild(s);
+    if (document.querySelector('guestbook-widget, gb-auth-bar, [id^="guestbook-"]')) {
+      loadWidget();
+    }
+  } else {
+    observeWidget();
   }
 
   {{- if eq $theme "auto" }}
@@ -43,6 +81,19 @@
     .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
   syncGbTheme();
   {{- end }}
+
+  /**
+   * pjax/swup 翻页后：重新 observe 新出现的 Widget 元素 + 同步暗色模式
+   * widget.js 只加载一次，但 IntersectionObserver 需重新绑定新元素
+   */
+  document.addEventListener('pjax:complete', function () {
+    observeWidget();
+    {{- if eq $theme "auto" }}syncGbTheme();{{- end }}
+  });
+  document.addEventListener('swup:contentReplaced', function () {
+    observeWidget();
+    {{- if eq $theme "auto" }}syncGbTheme();{{- end }}
+  });
 })();
 </script>
 {{- end }}

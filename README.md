@@ -10,19 +10,21 @@
 - 📱 手机号注册/用户管理（UNIQUE 占位符防空值冲突）
 - 🎨 Web Component Widget，Shadow DOM 样式隔离，支持主题自动跟随
 - 📝 秘密留言功能（仅隐藏内容，用户信息正常展示）
-- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码（explicit render 模式）、连续重复字符检测
+- 🛡️ XSS 防护、PBKDF2 密码加密、Turnstile 验证码（render 模式，无竞态）、连续重复字符检测
 - 📏 留言字数限制（后端 board_config 统一管理）
 - 📊 Naive UI 管理后台（留言审核+来源、用户管理+手机号+删除、系统配置、操作日志）
 - ✉️ Resend 邮件验证（同步调用，免费 100 封/天，国内投递优化提示见下方）
 - 🔑 找回/重置密码（邮箱发送重置链接，Token Hash 存储，1 小时过期）
 - 📧 修改邮箱（密码验证 + 重新验证 + Gravatar 自动更新）
-- ✅ 邮箱验证才能留言（前后端双重拦截，管理员豁免）
+- ✅ 邮箱验证才能留言（前后端双重拦截，管理员豁免，紧急降级开关同步）
 - 🪟 认证弹窗系统（登录/注册/找回密码/重置密码/修改密码/修改邮箱）
 - 🧭 导航栏认证栏（`<gb-auth-bar>` Web Component + `window.GuestBoard` 全局 API）
 - 📱 移动端优化（消除双击延迟、44px 最小触摸区域、`:active` 替代 `:hover`）
 - 🔄 CORS 跨域支持（`_middleware.ts` 全局拦截 OPTIONS）、Gravatar 头像自动生成、API 错误码体系统一
 - 🌐 留言来源追踪（page_url 自动注入，管理后台可打开来源页）
 - 🔒 跨域 Cookie 正确传递（credentials:'include'）
+- 💬 评论数显示（内容页零请求事件方式 + 列表页批量 API + pjax 翻页支持）
+- ⚡ CDN 缓存（留言列表脱敏缓存 300s + 评论数缓存 300s，D1 零消耗）
 
 ## 快速开始
 
@@ -269,6 +271,28 @@ curl -I https://guestbook.17you.com/api/v1/messages   # 期望 no-store
 
 v1.1.0 已将所有表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。
 
+### 当前版本迁移：留言 IP 字段
+
+已有数据库需要执行一次迁移，为 `messages` 表增加提交 IP 字段：
+
+```sql
+ALTER TABLE messages ADD COLUMN ip_address TEXT DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_messages_page_created ON messages(page_id, created_at DESC);
+INSERT OR IGNORE INTO _migrations (name) VALUES ('003_add_message_ip');
+```
+
+本地执行：
+
+```bash
+pnpm run db:migrate:ip
+```
+
+远程执行：
+
+```bash
+pnpm run db:migrate:ip:remote
+```
+
 如果未来版本需要升级数据库，请按以下步骤操作：
 
 ### 1. 创建迁移脚本
@@ -326,8 +350,9 @@ hugo-templates/
 ├── layouts/partials/custom/
 │   ├── guestbook-head.html      → <head> 预连接（preconnect）
 │   ├── gb-auth-bar.html         → 导航栏认证栏（桌面端+移动端）
+│   ├── guestbook-count.html     → 留言数量占位
 │   ├── guestbook.html           → 评论区留言板组件
-│   └── guestbook-footer.html    → 页面底部JS懒加载 + 暗色模式同步
+│   └── guestbook-footer.html    → 页面底部JS懒加载 + 留言数量挂载 + 暗色模式同步
 └── config-example.toml          → 配置参考
 ```
 
@@ -340,6 +365,7 @@ hugo-templates/
   apiBase = "https://guestbook.17you.com"           # 留言板服务地址（自动补全 /api/v1）
   siteKey = "0x4AAAAAADKEiieQVd99LXKI"              # Turnstile Site Key
   theme = "auto"                                     # "light" | "dark" | "auto"
+  countFormat = "{count} 条留言"                      # 留言数量显示格式
 
 # FixIt 主题 customPartials 注入点
 [params.customPartials]
@@ -351,7 +377,42 @@ hugo-templates/
   comment = ["custom/guestbook.html"]                                 # 评论区留言板
   footer = []
   widgets = []
-  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+主题同步
+  assets = ["custom/guestbook-footer.html"]                           # 页面底部JS+留言数量挂载+主题同步
+```
+
+#### 留言数量挂载
+
+`guestbook-footer.html` 会自动加载 `guestbook-count.js`。在 Hugo 模板中把数量显示位置放一个占位元素即可，脚本会按 `data-page-id` 批量请求 `/api/v1/messages/counts` 并写回文本。
+
+文章内容页显示留言数量：
+
+```html
+<span
+  data-guestbook-count
+  data-page-id="{{ .RelPermalink }}"
+  data-format="{count} 条留言"
+>0 条留言</span>
+```
+
+文章列表页每篇文章显示留言数量：
+
+```html
+{{ range .Paginator.Pages }}
+  <article>
+    <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+    <span
+      data-guestbook-count
+      data-page-id="{{ .RelPermalink }}"
+      data-format="{count} 条留言"
+    >0 条留言</span>
+  </article>
+{{ end }}
+```
+
+也可以直接复用提供的 partial：
+
+```go-html-template
+{{ partial "custom/guestbook-count.html" . }}
 ```
 
 在文章 Front Matter 中可关闭留言板：
@@ -556,6 +617,7 @@ GuestBoard.unmountAuthBar();
 | POST | `/api/v1/auth/reset-password` | 无 | 重置密码（Token 验证） |
 | POST | `/api/v1/auth/change-email` | JWT | 修改邮箱 |
 | GET | `/api/v1/messages` | 可选 | 留言列表 |
+| GET | `/api/v1/messages/counts?pageId=...` | 无 | 按 `page_id` 批量统计留言数量（不检查状态） |
 | POST | `/api/v1/messages` | JWT + Turnstile + 邮箱验证 | 提交留言 |
 | GET | `/api/v1/messages/:id` | JWT（秘密） | 单条留言 |
 | POST | `/api/v1/setup` | 无 | 初始化管理员 |
@@ -595,11 +657,12 @@ you-guestbook/
 ├── src/
 │   ├── widget/           → 留言板 Widget（Web Component）
 │   │   ├── components/   → AuthModal / UserDropdown / AuthBar / GuestBoard
-│   │   └── composables/ → useAuth / useMessages
+│   │   ├── composables/ → useAuth / useMessages
+│   │   └── utils/       → turnstile（SDK 动态加载 + Widget 管理）
 │   ├── admin/            → 管理后台 SPA（Naive UI）
 │   └── shared/           → 共享前端代码（types / api 封装）
 ├── public/               → 静态页面
-│   ├── login.html        → 登录/注册页（Turnstile explicit render + 知乎预填）
+│   ├── login.html        → 登录/注册页（Turnstile render 模式 + 知乎预填）
 │   └── admin/            → 管理后台入口
 ├── hugo-templates/       → Hugo 集成文件（customPartials 方式）
 └── scheduled.ts          → Cron 定时清理
@@ -640,6 +703,9 @@ you-guestbook/
 - Turnstile 验证传递 `remoteIp`（`getClientIp`），失败会记录 Cloudflare 返回的 `error-codes`
 - 知乎 OAuth 回调字段显式兜底（`|| ''`），防止 undefined 运行时错误
 - 手机号 UNIQUE 约束使用占位符（`_phone_{uid}`），解决空值冲突
+- 留言列表 CDN 缓存安全：秘密/审核留言 content 后端脱敏为 null，前端按角色本地遮掩，CDN 缓存无隐私泄露风险
+- Turnstile SDK 动态加载（`ensureTurnstileSDK`），Hugo 嵌入场景不再依赖宿主页面预加载
+- Turnstile render 模式替代 execute 模式，消除 iframe 未就绪竞态条件
 
 ## 系统容错与紧急降级
 
