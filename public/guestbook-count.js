@@ -1,11 +1,13 @@
 (function () {
   /**
-   * 支持两种选择器：
-   * 1. [data-guestbook-count][data-page-id] — 列表页专用（guestbook-count.html）
-   * 2. .guestbook-comment-count[data-path]  — FixIt 主题文章元信息区（内容页+列表页通用）
+   * 支持三种选择器：
+   * 1. [data-guestbook-count][data-page-id] — 列表页留言数（guestbook-count.html）
+   * 2. .guestbook-comment-count[data-path]  — FixIt 主题文章元信息区评论数
+   * 3. [data-guestbook-views][data-page-id]  — 列表页浏览量（guestbook-views.html）
    */
-  var selector1 = '[data-guestbook-count][data-page-id]';
-  var selector2 = '.guestbook-comment-count[data-path]';
+  var selectorCount1 = '[data-guestbook-count][data-page-id]';
+  var selectorCount2 = '.guestbook-comment-count[data-path]';
+  var selectorViews = '[data-guestbook-views][data-page-id]';
 
   function inferApiBase() {
     if (window.GUESTBOOK_API_BASE) {
@@ -22,39 +24,63 @@
     return '/api/v1';
   }
 
-  function formatText(el, count) {
+  /** 格式化留言数文本 */
+  function formatCountText(el, count) {
     var format = el.getAttribute('data-format') || '{count}';
     return format.replace(/\{count\}/g, String(count));
+  }
+
+  /** 格式化浏览量文本 */
+  function formatViewsText(el, views, visitors) {
+    var format = el.getAttribute('data-format') || '{views}';
+    return format
+      .replace(/\{views\}/g, String(views))
+      .replace(/\{visitors\}/g, String(visitors));
   }
 
   /** 收集所有计数元素的 pageId → 元素映射 */
   function collectNodes() {
     var map = {};
-    document.querySelectorAll(selector1).forEach(function (el) {
+    document.querySelectorAll(selectorCount1).forEach(function (el) {
       var pageId = (el.getAttribute('data-page-id') || '').trim();
-      if (pageId && !map[pageId]) map[pageId] = [];
-      if (pageId) map[pageId].push({ el: el, attr: 'data-page-id' });
+      if (pageId && !map[pageId]) map[pageId] = { count: [], views: [] };
+      if (pageId) map[pageId].count.push({ el: el, attr: 'data-page-id' });
     });
-    document.querySelectorAll(selector2).forEach(function (el) {
+    document.querySelectorAll(selectorCount2).forEach(function (el) {
       var path = (el.getAttribute('data-path') || '').trim();
-      if (path && !map[path]) map[path] = [];
-      if (path) map[path].push({ el: el, attr: 'data-path' });
+      if (path && !map[path]) map[path] = { count: [], views: [] };
+      if (path) map[path].count.push({ el: el, attr: 'data-path' });
+    });
+    document.querySelectorAll(selectorViews).forEach(function (el) {
+      var pageId = (el.getAttribute('data-page-id') || '').trim();
+      if (pageId && !map[pageId]) map[pageId] = { count: [], views: [] };
+      if (pageId) map[pageId].views.push(el);
     });
     return map;
   }
 
-  /** 将 API 返回的 counts 填充到所有计数元素 */
-  function applyCounts(counts) {
+  /** 将 API 返回的数据填充到所有计数/浏览量元素 */
+  function applyData(counts, views) {
     var map = collectNodes();
     Object.keys(map).forEach(function (pageId) {
-      var count = counts[pageId] || 0;
-      map[pageId].forEach(function (item) {
+      var count = (counts && counts[pageId]) || 0;
+      var viewData = (views && views[pageId]) || { views: 0, visitors: 0 };
+
+      // 填充留言数
+      map[pageId].count.forEach(function (item) {
         if (item.attr === 'data-page-id') {
-          item.el.textContent = formatText(item.el, count);
+          item.el.textContent = formatCountText(item.el, count);
           item.el.setAttribute('data-count', String(count));
         } else {
           item.el.textContent = String(count);
         }
+      });
+
+      // 填充浏览量
+      map[pageId].views.forEach(function (el) {
+        el.textContent = formatViewsText(el, viewData.views, viewData.visitors);
+        el.setAttribute('data-views', String(viewData.views));
+        el.setAttribute('data-visitors', String(viewData.visitors));
       });
     });
   }
@@ -75,7 +101,12 @@
     })
       .then(function (resp) { return resp.ok ? resp.json() : null; })
       .then(function (json) {
-        if (json && json.success && json.data) applyCounts(json.data);
+        if (json && json.success && json.data) {
+          // 兼容旧 API（仅返回 counts）和新 API（返回 { counts, views }）
+          var counts = json.data.counts !== undefined ? json.data.counts : json.data;
+          var views = json.data.views || {};
+          applyData(counts, views);
+        }
       })
       .catch(function () {});
   }

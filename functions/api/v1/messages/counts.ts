@@ -1,4 +1,4 @@
-// functions/api/v1/messages/counts.ts — 按 page_id 批量统计留言数量
+// functions/api/v1/messages/counts.ts — 按 page_id 批量统计留言数量 + 浏览量
 import { apiHandler } from '../../../../lib/middleware';
 import { cacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse } from '../../../../lib/response';
@@ -16,7 +16,9 @@ export const onRequestGet = apiHandler(async (request, env) => {
   }
 
   const placeholders = pageIds.map(() => '?').join(', ');
-  const rows = await env.DB.prepare(
+
+  // 查询留言数量
+  const msgRows = await env.DB.prepare(
     `SELECT page_id, COUNT(*) as count
      FROM messages
      WHERE page_id IN (${placeholders})
@@ -25,9 +27,22 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   const counts: Record<string, number> = {};
   for (const pageId of pageIds) counts[pageId] = 0;
-  for (const row of rows.results || []) counts[row.page_id] = row.count;
+  for (const row of msgRows.results || []) counts[row.page_id] = row.count;
 
-  return successResponse(counts, {
+  // 查询浏览量（analytics_page_totals 表）
+  const viewRows = await env.DB.prepare(
+    `SELECT page_id, views, visitors
+     FROM analytics_page_totals
+     WHERE page_id IN (${placeholders})`
+  ).bind(...pageIds).all<{ page_id: string; views: number; visitors: number }>();
+
+  const views: Record<string, { views: number; visitors: number }> = {};
+  for (const pageId of pageIds) views[pageId] = { views: 0, visitors: 0 };
+  for (const row of viewRows.results || []) {
+    views[row.page_id] = { views: row.views || 0, visitors: row.visitors || 0 };
+  }
+
+  return successResponse({ counts, views }, {
     ...cacheHeaders(300),
     'Content-Type': 'application/json',
   });

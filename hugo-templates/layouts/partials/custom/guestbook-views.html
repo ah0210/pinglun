@@ -1,0 +1,10 @@
+{{- if .Site.Params.guestbook.enable | default false -}}
+{{- $pageId := .RelPermalink -}}
+{{- $format := .Site.Params.guestbook.viewFormat | default "{views}" -}}
+<span
+  class="guestbook-views"
+  data-guestbook-views
+  data-page-id="{{ $pageId }}"
+  data-format="{{ $format }}"
+>0</span>
+{{- end -}}
