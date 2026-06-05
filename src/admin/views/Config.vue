@@ -37,6 +37,14 @@
           <span style="margin-left: 8px; color: #999">{{ config.forceSkipTurnstile ? '紧急降级中' : '正常模式' }}</span>
           <n-tag v-if="config.forceSkipTurnstile" type="warning" style="margin-left: 8px">⚠️ 仅在 Turnstile 宕机时临时开启</n-tag>
         </n-form-item>
+        <n-form-item label="流量统计">
+          <n-switch v-model:value="config.analyticsEnabled" />
+          <span style="margin-left: 8px; color: #999">{{ config.analyticsEnabled ? '采集访问数据' : '停止采集' }}</span>
+        </n-form-item>
+        <n-form-item label="前台浏览量">
+          <n-switch v-model:value="config.showViewCount" />
+          <span style="margin-left: 8px; color: #999">{{ config.showViewCount ? '默认显示' : '默认隐藏' }}</span>
+        </n-form-item>
         <n-form-item>
           <n-button type="primary" :loading="saving" @click="handleSave">保存配置</n-button>
         </n-form-item>
@@ -65,6 +73,8 @@ const config = reactive<AdminConfig>({
   allowRegistration: true,
   requireEmailVerification: true,
   forceSkipTurnstile: false,
+  analyticsEnabled: true,
+  showViewCount: true,
   updatedAt: '',
 });
 

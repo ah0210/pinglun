@@ -80,6 +80,8 @@ export interface DbBoardConfig {
   allow_registration: number;
   require_email_verification: number;
   force_skip_turnstile: number;
+  analytics_enabled: number;
+  show_view_count: number;
   updated_at: string;
 }
 

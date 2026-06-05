@@ -901,7 +901,7 @@ GET /api/v1/admin/analytics/opportunities
 
 建议实现路径：
 
-1. 新增 SQL 迁移：`sql/004_add_analytics.sql`。
+1. 将流量统计表结构合并到 `sql/001_init.sql`，线上已有数据库使用手动增量 SQL 更新。
 2. 新增 `lib/analytics.ts`：渠道归因、设备校验、聚合更新、留言数同步辅助函数。
 3. 新增 `functions/api/v1/analytics/view.ts`。
 4. 新增 `functions/api/v1/analytics/page.ts`。

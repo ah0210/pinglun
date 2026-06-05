@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS board_config (
   allow_registration        INTEGER DEFAULT 1,
   require_email_verification INTEGER DEFAULT 1,
   force_skip_turnstile      INTEGER DEFAULT 0,
+  analytics_enabled         INTEGER DEFAULT 1,
+  show_view_count           INTEGER DEFAULT 1,
   updated_at                TEXT DEFAULT (datetime('now'))
 );
 
@@ -155,6 +157,99 @@ CREATE TABLE IF NOT EXISTS oauth_connections (
 
 CREATE INDEX IF NOT EXISTS idx_oauth_user ON oauth_connections(user_id);
 CREATE INDEX IF NOT EXISTS idx_oauth_provider_uid ON oauth_connections(provider, provider_uid);
+
+-- 流量统计原始事件表
+CREATE TABLE IF NOT EXISTS analytics_events (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  page_id         TEXT NOT NULL,
+  page_title      TEXT DEFAULT '',
+  page_url        TEXT DEFAULT '',
+  canonical_url   TEXT DEFAULT '',
+  referrer        TEXT DEFAULT '',
+  referrer_domain TEXT DEFAULT '',
+  utm_source      TEXT DEFAULT '',
+  utm_medium      TEXT DEFAULT '',
+  utm_campaign    TEXT DEFAULT '',
+  channel         TEXT DEFAULT 'direct',
+  country         TEXT DEFAULT '',
+  device_type     TEXT DEFAULT '',
+  screen_width    INTEGER DEFAULT 0,
+  screen_height   INTEGER DEFAULT 0,
+  viewport_width  INTEGER DEFAULT 0,
+  viewport_height INTEGER DEFAULT 0,
+  language        TEXT DEFAULT '',
+  timezone        TEXT DEFAULT '',
+  ip_address      TEXT DEFAULT '',
+  visitor_id      TEXT NOT NULL,
+  session_id      TEXT NOT NULL,
+  created_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- 页面每日聚合统计表
+CREATE TABLE IF NOT EXISTS analytics_page_daily (
+  date            TEXT NOT NULL,
+  page_id         TEXT NOT NULL,
+  page_title      TEXT DEFAULT '',
+  page_url        TEXT DEFAULT '',
+  canonical_url   TEXT DEFAULT '',
+  views           INTEGER DEFAULT 0,
+  visitors        INTEGER DEFAULT 0,
+  sessions        INTEGER DEFAULT 0,
+  search_views    INTEGER DEFAULT 0,
+  internal_views  INTEGER DEFAULT 0,
+  direct_views    INTEGER DEFAULT 0,
+  referral_views  INTEGER DEFAULT 0,
+  social_views    INTEGER DEFAULT 0,
+  message_count   INTEGER DEFAULT 0,
+  countries_json  TEXT DEFAULT '{}',
+  channels_json   TEXT DEFAULT '{}',
+  devices_json    TEXT DEFAULT '{}',
+  updated_at      TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (date, page_id)
+);
+
+-- 页面累计统计表，供前台快速读取浏览量和留言数
+CREATE TABLE IF NOT EXISTS analytics_page_totals (
+  page_id         TEXT PRIMARY KEY,
+  page_title      TEXT DEFAULT '',
+  page_url        TEXT DEFAULT '',
+  canonical_url   TEXT DEFAULT '',
+  views           INTEGER DEFAULT 0,
+  visitors        INTEGER DEFAULT 0,
+  sessions        INTEGER DEFAULT 0,
+  search_views    INTEGER DEFAULT 0,
+  message_count   INTEGER DEFAULT 0,
+  last_view_at    TEXT DEFAULT NULL,
+  last_message_at TEXT DEFAULT NULL,
+  updated_at      TEXT DEFAULT (datetime('now'))
+);
+
+-- 每日页面访客去重表
+CREATE TABLE IF NOT EXISTS analytics_daily_visitors (
+  date       TEXT NOT NULL,
+  page_id    TEXT NOT NULL,
+  visitor_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (date, page_id, visitor_id)
+);
+
+-- 每日页面会话去重表
+CREATE TABLE IF NOT EXISTS analytics_daily_sessions (
+  date       TEXT NOT NULL,
+  page_id    TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (date, page_id, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_events_page_created ON analytics_events(page_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_created ON analytics_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_channel ON analytics_events(channel);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_referrer_domain ON analytics_events(referrer_domain);
+CREATE INDEX IF NOT EXISTS idx_analytics_page_daily_date ON analytics_page_daily(date);
+CREATE INDEX IF NOT EXISTS idx_analytics_page_daily_views ON analytics_page_daily(date, views DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_page_totals_views ON analytics_page_totals(views DESC);
+CREATE INDEX IF NOT EXISTS idx_analytics_page_totals_updated ON analytics_page_totals(updated_at DESC);
 
 -- 记录迁移版本
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');

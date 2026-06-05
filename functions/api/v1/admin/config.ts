@@ -23,6 +23,8 @@ export const onRequestGet = apiHandler(async (request, env) => {
     allowRegistration: config.allow_registration === 1,
     requireEmailVerification: config.require_email_verification === 1,
     forceSkipTurnstile: config.force_skip_turnstile === 1,
+    analyticsEnabled: config.analytics_enabled === 1,
+    showViewCount: config.show_view_count === 1,
     updatedAt: config.updated_at,
   }, noCacheHeaders());
 }, { requireAdmin: true });
@@ -39,6 +41,8 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     allowRegistration?: boolean;
     requireEmailVerification?: boolean;
     forceSkipTurnstile?: boolean;
+    analyticsEnabled?: boolean;
+    showViewCount?: boolean;
   };
 
   const updates: string[] = [];
@@ -79,6 +83,14 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   if (body.forceSkipTurnstile !== undefined) {
     updates.push('force_skip_turnstile = ?');
     binds.push(body.forceSkipTurnstile ? 1 : 0);
+  }
+  if (body.analyticsEnabled !== undefined) {
+    updates.push('analytics_enabled = ?');
+    binds.push(body.analyticsEnabled ? 1 : 0);
+  }
+  if (body.showViewCount !== undefined) {
+    updates.push('show_view_count = ?');
+    binds.push(body.showViewCount ? 1 : 0);
   }
 
   if (updates.length === 0) {

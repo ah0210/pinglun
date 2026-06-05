@@ -147,6 +147,7 @@ function createWidget(options: WidgetOptions) {
   board.siteKey = options.siteKey || '';
   board.theme = options.theme || 'auto';
   board.maxLength = options.maxLength || 500;
+  if (options.showViewCount !== undefined) board.showViewCount = options.showViewCount;
 
   container.appendChild(board);
 }

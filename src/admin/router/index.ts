@@ -16,6 +16,7 @@ const routes = [
     children: [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', name: 'Dashboard', component: () => import('../views/Dashboard.vue') },
+      { path: 'analytics', name: 'Analytics', component: () => import('../views/Analytics.vue') },
       { path: 'messages', name: 'Messages', component: () => import('../views/Messages.vue') },
       { path: 'users', name: 'Users', component: () => import('../views/Users.vue') },
       { path: 'config', name: 'Config', component: () => import('../views/Config.vue') },

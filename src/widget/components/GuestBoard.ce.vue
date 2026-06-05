@@ -4,6 +4,9 @@
     <!-- 头部：标题 + 用户栏 -->
     <div class="gb-header">
       <h2 class="gb-title">{{ config?.siteName || '留言板' }} <span class="gb-count">{{ messageCountLabel }}</span></h2>
+      <div v-if="effectiveShowViewCount && pageStats" class="gb-page-stats">
+        浏览 {{ pageStats.views }}
+      </div>
       <div v-if="auth.user.value" class="gb-user-bar">
         <UserDropdown
           :user="auth.user.value"
@@ -90,6 +93,7 @@
 import { computed, getCurrentInstance, onMounted, ref, watch } from 'vue';
 import { useAuth, initAuth } from '../composables/useAuth';
 import { useMessages } from '../composables/useMessages';
+import { useAnalytics } from '../composables/useAnalytics';
 import { useTheme } from '../composables/useTheme';
 import { adoptTheme } from '../styles/theme';
 import UserDropdown from './UserDropdown.vue';
@@ -106,6 +110,7 @@ const props = defineProps<{
   siteKey?: string;
   theme?: 'light' | 'dark' | 'auto';
   maxLength?: number;
+  showViewCount?: boolean | string;
 }>();
 
 // 自动补全 apiBase
@@ -134,6 +139,7 @@ watch(effectiveTheme, (t) => {
 
 const auth = useAuth();
 const messages = useMessages(resolvedApiBase.value);
+const { pageStats, fetchPageStats, trackPageView } = useAnalytics(resolvedApiBase.value);
 const config = messages.config;
 
 const authModalRef = ref<InstanceType<typeof AuthModal> | null>(null);
@@ -169,6 +175,12 @@ function onLoadMore() {
   messages.loadMore(props.pageId);
 }
 
+const effectiveShowViewCount = computed(() => {
+  if (props.showViewCount === '' || props.showViewCount === true || props.showViewCount === 'true') return true;
+  if (props.showViewCount === false || props.showViewCount === 'false') return false;
+  return config.value?.showViewCount !== false;
+});
+
 /**
  * 向宿主页面发射评论计数事件
  * composed:true 使事件穿透 Shadow DOM 到达 document
@@ -201,6 +213,8 @@ onMounted(async () => {
   await messages.fetchConfig();
   await auth.init();
   await auth.handleOAuthCallback();
+  await fetchPageStats(props.pageId);
+  await trackPageView(props.pageId);
   await messages.fetchMessages(props.pageId);
 });
 </script>
@@ -237,6 +251,14 @@ onMounted(async () => {
   font-weight: 400;
   color: var(--gb-text-secondary, #999);
   margin-left: 4px;
+}
+.gb-page-stats {
+  flex-shrink: 0;
+  margin-right: 12px;
+  color: var(--gb-text-secondary, #999);
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 /* 未登录提示 */

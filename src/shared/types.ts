@@ -46,7 +46,21 @@ export interface BoardConfig {
   allowRegistration: boolean;
   requireEmailVerification: boolean;
   forceSkipTurnstile: boolean;
+  analyticsEnabled: boolean;
+  showViewCount: boolean;
   turnstileSiteKey?: string;
+}
+
+export interface PageStats {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  canonicalUrl: string;
+  views: number;
+  visitors: number;
+  sessions: number;
+  searchViews: number;
+  messageCount: number;
 }
 
 export interface PaginatedResponse<T> {
@@ -84,6 +98,7 @@ export interface WidgetOptions {
   siteKey?: string; // 可选，widget 会从 config API 自动获取
   theme?: 'light' | 'dark' | 'auto';
   maxLength?: number;
+  showViewCount?: boolean;
 }
 
 // 管理后台统计
@@ -93,6 +108,36 @@ export interface AdminStats {
   totalUsers: number;
   pendingMessages: number;
   secretMessages: number;
+}
+
+export interface AnalyticsSummary {
+  today: { views: number; visitors: number; sessions: number };
+  yesterday: { views: number; visitors: number; sessions: number };
+  windows: { last7Views: number; last30Views: number; previous7Views: number };
+  topPages: AnalyticsPage[];
+}
+
+export interface AnalyticsPage {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  canonicalUrl?: string;
+  views: number;
+  visitors: number;
+  sessions: number;
+  searchViews: number;
+  messageCount: number;
+  lastViewAt?: string | null;
+  lastMessageAt?: string | null;
+  updatedAt?: string;
+}
+
+export interface AnalyticsBreakdownRow {
+  channel?: string;
+  referrerDomain?: string;
+  views: number;
+  visitors: number;
+  sessions?: number;
 }
 
 // 管理后台配置
@@ -106,6 +151,8 @@ export interface AdminConfig {
   allowRegistration: boolean;
   requireEmailVerification: boolean;
   forceSkipTurnstile: boolean;
+  analyticsEnabled: boolean;
+  showViewCount: boolean;
   updatedAt: string;
 }
 

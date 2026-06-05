@@ -22,6 +22,7 @@
 - 📱 移动端优化（消除双击延迟、44px 最小触摸区域、`:active` 替代 `:hover`）
 - 🔄 CORS 跨域支持（`_middleware.ts` 全局拦截 OPTIONS）、Gravatar 头像自动生成、API 错误码体系统一
 - 🌐 留言来源追踪（page_url 自动注入，管理后台可打开来源页）
+- 📈 流量统计（PV/UV/Session、来源渠道、页面表现、搜索入口、90 天原始事件保留）
 - 🔒 跨域 Cookie 正确传递（credentials:'include'）
 - 💬 评论数显示（内容页零请求事件方式 + 列表页批量 API + pjax 翻页支持）
 - ⚡ CDN 缓存（留言列表脱敏缓存 300s + 评论数缓存 300s，D1 零消耗）
@@ -269,7 +270,7 @@ curl -I https://guestbook.17you.com/api/v1/messages   # 期望 no-store
 
 ## 数据库升级
 
-v1.1.0 已将所有表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。
+当前项目约定：所有完整表结构合并到 `sql/001_init.sql`，新部署只需执行 `db:init` + `db:seed` 即可。线上已有数据库按版本说明手动执行对应增量 SQL。
 
 ### 当前版本迁移：留言 IP 字段
 
@@ -293,49 +294,29 @@ pnpm run db:migrate:ip
 pnpm run db:migrate:ip:remote
 ```
 
-如果未来版本需要升级数据库，请按以下步骤操作：
+后续升级数据库时，直接更新 `sql/001_init.sql` 保持新部署完整性；线上已有数据库只执行手动整理好的增量 SQL。
 
-### 1. 创建迁移脚本
+## 流量统计采集说明
 
-在 `sql/` 目录下创建新的迁移文件，命名格式 `00N_description.sql`（N 为序号，如 `006_add_new_field.sql`）：
+流量统计默认开启，可在后台「系统配置」中关闭采集，或单独关闭前台浏览量展示。
 
-```sql
--- 迁移：006_add_new_field
--- 日期：2026-xx-xx
--- 说明：为 users 表新增 xxx 字段
+采集内容：
 
-ALTER TABLE users ADD COLUMN new_field TEXT DEFAULT '';
+- 页面标题、页面 URL、canonical URL、page_id。
+- 来源页面、来源域名、UTM 参数和渠道类型。
+- 真实 IP、Cloudflare 国家码、visitor_id、session_id。
+- 设备类型、屏幕尺寸、视口尺寸、语言和时区。
 
--- 记录迁移
-INSERT OR IGNORE INTO _migrations (name) VALUES ('006_add_new_field');
-```
+不采集内容：
 
-### 2. 在 package.json 中添加迁移脚本
+- 鼠标轨迹、滚动深度、点击热区。
+- canvas / audio / font 等浏览器指纹。
+- 浏览器插件列表或字体列表。
 
-```json
-{
-  "scripts": {
-    "db:migrate:v4": "wrangler d1 execute guestbook --local --file=sql/006_add_new_field.sql",
-    "db:migrate:v4:remote": "wrangler d1 execute guestbook --remote --file=sql/006_add_new_field.sql"
-  }
-}
-```
+保留策略：
 
-### 3. 执行迁移
-
-```bash
-# 本地
-pnpm run db:migrate:v4
-
-# 远程
-pnpm run db:migrate:v4:remote
-```
-
-### 4. 更新 001_init.sql
-
-同时将新字段/表同步到 `001_init.sql` 中，确保新部署的用户使用 `db:init` 即可获得完整最新的数据库结构，并更新 `_migrations` 表的插入记录。
-
-> **注意**：`_migrations` 表用于追踪已执行的迁移，防止重复执行。所有迁移脚本应包含 `INSERT OR IGNORE INTO _migrations` 语句。
+- `analytics_events` 原始访问事件默认保留 90 天，由 Cron 清理。
+- `analytics_page_daily` 和 `analytics_page_totals` 聚合统计长期保留。
 
 ## 页面集成
 

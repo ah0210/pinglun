@@ -2,6 +2,7 @@
 import { apiHandler, getClientIp } from '../../../../../lib/middleware';
 import { logAdminAction } from '../../../../../lib/admin-log';
 import { ErrorCode, errorResponse, successResponse } from '../../../../../lib/response';
+import { adjustMessageCount } from '../../../../../lib/analytics';
 import type { Env, DbMessage, JwtPayload } from '../../../../../lib/types';
 
 // POST — 批量删除留言（当 id 为 "batch-delete" 时）
@@ -23,9 +24,17 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   }
 
   const placeholders = body.ids.map(() => '?').join(',');
+  const approvedMessages = await env.DB.prepare(
+    `SELECT page_id, page_url, created_at FROM messages WHERE status = 'approved' AND id IN (${placeholders})`
+  ).bind(...body.ids).all<Pick<DbMessage, 'page_id' | 'page_url' | 'created_at'>>();
+
   const result = await env.DB.prepare(
     `DELETE FROM messages WHERE id IN (${placeholders})`
   ).bind(...body.ids).run();
+
+  for (const message of approvedMessages.results || []) {
+    await adjustMessageCount(env, message.page_id, message.page_url || '', message.created_at, -1);
+  }
 
   await logAdminAction(
     env, user!.userId, 'batch_delete_messages',
@@ -46,12 +55,22 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.VALIDATION_ERROR, '状态只能是 approved 或 rejected', 400);
   }
 
-  const message = await env.DB.prepare('SELECT id FROM messages WHERE id = ?').bind(id).first();
+  const message = await env.DB.prepare(
+    'SELECT id, page_id, page_url, status, created_at FROM messages WHERE id = ?'
+  ).bind(id).first<Pick<DbMessage, 'id' | 'page_id' | 'page_url' | 'status' | 'created_at'>>();
   if (!message) {
     return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
   }
 
   await env.DB.prepare('UPDATE messages SET status = ? WHERE id = ?').bind(body.status, id).run();
+
+  if (message.status !== body.status) {
+    if (message.status !== 'approved' && body.status === 'approved') {
+      await adjustMessageCount(env, message.page_id, message.page_url || '', message.created_at, 1);
+    } else if (message.status === 'approved' && body.status !== 'approved') {
+      await adjustMessageCount(env, message.page_id, message.page_url || '', message.created_at, -1);
+    }
+  }
 
   await logAdminAction(
     env, user!.userId,
@@ -67,12 +86,18 @@ export const onRequestPatch = apiHandler(async (request, env, ctx, user) => {
 export const onRequestDelete = apiHandler(async (request, env, ctx, user) => {
   const id = Array.isArray(ctx.params.id) ? ctx.params.id[0] : ctx.params.id;
 
-  const message = await env.DB.prepare('SELECT id FROM messages WHERE id = ?').bind(id).first();
+  const message = await env.DB.prepare(
+    'SELECT id, page_id, page_url, status, created_at FROM messages WHERE id = ?'
+  ).bind(id).first<Pick<DbMessage, 'id' | 'page_id' | 'page_url' | 'status' | 'created_at'>>();
   if (!message) {
     return errorResponse(ErrorCode.MESSAGE_NOT_FOUND, '留言不存在', 404);
   }
 
   await env.DB.prepare('DELETE FROM messages WHERE id = ?').bind(id).run();
+
+  if (message.status === 'approved') {
+    await adjustMessageCount(env, message.page_id, message.page_url || '', message.created_at, -1);
+  }
 
   await logAdminAction(
     env, user!.userId, 'delete_message',

@@ -53,6 +53,7 @@ const currentRoute = computed(() => route.name as string);
 
 const menuOptions = [
   { label: '数据概览', key: 'Dashboard', icon: () => h('span', null, '📊') },
+  { label: '流量分析', key: 'Analytics', icon: () => h('span', null, '📈') },
   { label: '留言管理', key: 'Messages', icon: () => h('span', null, '💬') },
   { label: '用户管理', key: 'Users', icon: () => h('span', null, '👥') },
   { label: '系统配置', key: 'Config', icon: () => h('span', null, '⚙️') },

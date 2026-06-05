@@ -4,5 +4,15 @@
 -- ============================================
 
 -- 初始化默认配置
-INSERT OR IGNORE INTO board_config (id, site_name, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration)
-VALUES (1, '自游人留言板', 500, 1, 0, 5, 1);
+INSERT OR IGNORE INTO board_config (
+  id,
+  site_name,
+  max_message_length,
+  require_captcha,
+  moderation_enabled,
+  daily_secret_limit,
+  allow_registration,
+  analytics_enabled,
+  show_view_count
+)
+VALUES (1, '自游人留言板', 500, 1, 0, 5, 1, 1, 1);

@@ -6,7 +6,7 @@ import type { Env, DbBoardConfig } from '../../../lib/types';
 
 export const onRequestGet = apiHandler(async (request, env) => {
   const config = await env.DB.prepare(
-    'SELECT site_name, min_message_length, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration, require_email_verification, force_skip_turnstile FROM board_config WHERE id = 1'
+    'SELECT site_name, min_message_length, max_message_length, require_captcha, moderation_enabled, daily_secret_limit, allow_registration, require_email_verification, force_skip_turnstile, analytics_enabled, show_view_count FROM board_config WHERE id = 1'
   ).first<DbBoardConfig>();
 
   if (!config) {
@@ -20,6 +20,8 @@ export const onRequestGet = apiHandler(async (request, env) => {
       allowRegistration: true,
       requireEmailVerification: true,
       forceSkipTurnstile: false,
+      analyticsEnabled: true,
+      showViewCount: true,
       turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
     }, noCacheHeaders());
   }
@@ -35,6 +37,8 @@ export const onRequestGet = apiHandler(async (request, env) => {
     allowRegistration: c.allow_registration === 1,
     requireEmailVerification: c.require_email_verification === 1,
     forceSkipTurnstile: c.force_skip_turnstile === 1,
+    analyticsEnabled: c.analytics_enabled === 1,
+    showViewCount: c.show_view_count === 1,
     turnstileSiteKey: env.TURNSTILE_SITE_KEY || '',
   }, noCacheHeaders());
 }, { requireAuth: false });

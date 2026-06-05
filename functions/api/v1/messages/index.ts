@@ -5,6 +5,7 @@ import { escapeHtml } from '../../../../lib/sanitize';
 import { noCacheHeaders, cacheHeaders } from '../../../../lib/cache-headers';
 import { ErrorCode, errorResponse, successResponse, cursorPaginatedResponse } from '../../../../lib/response';
 import { toPublicUser } from '../../../../lib/types';
+import { adjustMessageCount } from '../../../../lib/analytics';
 import type { DbMessage, PublicUser } from '../../../../lib/types';
 
 // GET — 留言列表（游标分页，无 COUNT，CDN 可缓存）
@@ -229,6 +230,10 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
   const result = await env.DB.prepare(
     `INSERT INTO messages (user_id, page_id, page_url, content, is_secret, reply_to, status, ip_address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(user.userId, body.pageId, body.pageUrl || '', content, body.isSecret ? 1 : 0, body.replyTo || null, status, ipAddress).run();
+
+  if (status === 'approved') {
+    await adjustMessageCount(env, body.pageId, body.pageUrl || '', new Date().toISOString(), 1);
+  }
 
   // 返回完整消息对象，便于前端乐观更新
   const dbUser = await env.DB.prepare('SELECT display_name FROM users WHERE id = ?').bind(user.userId).first<{ display_name: string | null }>();
