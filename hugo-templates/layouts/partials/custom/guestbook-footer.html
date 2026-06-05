@@ -29,6 +29,25 @@ window.GUESTBOOK_API_BASE = '{{ $widgetHost }}';
     });
   });
 
+  /**
+   * 监听 Widget 发射的 gb-page-stats 事件
+   * 更新宿主页面中 .guestbook-view-count[data-path] 元素的浏览量
+   * 事件由 GuestBoard.ce.vue 在页面统计加载/更新时发射
+   */
+  document.addEventListener('gb-page-stats', function(e) {
+    var detail = e.detail || {};
+    var views = detail.views || 0;
+    var visitors = detail.visitors || 0;
+    document.querySelectorAll('.guestbook-view-count[data-path]').forEach(function(el) {
+      var path = el.getAttribute('data-path');
+      if (path && detail.pageId && path !== detail.pageId) return;
+      var format = el.getAttribute('data-format') || '{views}';
+      el.textContent = format
+        .replace('{views}', views)
+        .replace('{visitors}', visitors);
+    });
+  });
+
   /** 加载 widget.js（只加载一次） */
   function loadWidget() {
     if (widgetLoaded) return;

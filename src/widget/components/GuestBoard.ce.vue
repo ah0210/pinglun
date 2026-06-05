@@ -195,6 +195,25 @@ function emitCommentCount() {
   }));
 }
 
+/**
+ * 向宿主页面发射页面统计事件（浏览量、访客数等）
+ * composed:true 使事件穿透 Shadow DOM 到达 document
+ */
+function emitPageStats() {
+  if (!pageStats.value) return;
+  document.dispatchEvent(new CustomEvent('gb-page-stats', {
+    detail: {
+      views: pageStats.value.views,
+      visitors: pageStats.value.visitors,
+      sessions: pageStats.value.sessions,
+      messageCount: pageStats.value.messageCount,
+      pageId: props.pageId,
+    },
+    bubbles: true,
+    composed: true,
+  }));
+}
+
 /** 留言计数标签：hasMore=false 显示精确数，hasMore=true 显示 N+ */
 const messageCountLabel = computed(() => {
   const count = messages.messages.value.length;
@@ -205,6 +224,11 @@ const messageCountLabel = computed(() => {
 /** 留言列表变化时自动发射计数事件（发帖/加载更多/删除后） */
 watch(() => messages.messages.value.length, () => {
   emitCommentCount();
+});
+
+/** 页面统计更新时自动发射统计事件（首次加载/访问上报后） */
+watch(pageStats, () => {
+  emitPageStats();
 });
 
 onMounted(async () => {
