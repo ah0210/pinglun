@@ -122,9 +122,11 @@
   }
 
   /**
-   * 监听 pjax/swup 页面切换事件，翻页后重新扫描并填充新出现的计数元素
+   * 监听框架级页面切换事件，翻页后重新扫描并填充新出现的计数元素
    * - pjax: document 触发 pjax:complete 事件
    * - swup: document 触发 swup:contentReplaced 事件
+   * - Turbo (Hotwire): document 触发 turbo:render 事件
+   * - Barba.js: document 触发 barba:after 事件
    */
   var debounceTimer = null;
   function debouncedLoadCounts() {
@@ -133,4 +135,38 @@
   }
   document.addEventListener('pjax:complete', debouncedLoadCounts);
   document.addEventListener('swup:contentReplaced', debouncedLoadCounts);
+  document.addEventListener('turbo:render', debouncedLoadCounts);
+  document.addEventListener('barba:after', debouncedLoadCounts);
+
+  /**
+   * MutationObserver 通用兜底：监听 DOM 中新增的计数/浏览量元素
+   * 适用于任何分页方式（AJAX 翻页、无限滚动、动态加载等）
+   * 仅在新增目标元素时触发，避免无关 DOM 变动引起频繁请求
+   */
+  var observedCount = 0;
+  var observer = new MutationObserver(function (mutations) {
+    var hasNewTarget = false;
+    for (var i = 0; i < mutations.length; i++) {
+      var added = mutations[i].addedNodes;
+      for (var j = 0; j < added.length; j++) {
+        var node = added[j];
+        if (node.nodeType !== 1) continue;
+        if (node.matches && (
+          node.matches(selectorCount1) || node.matches(selectorCount2) || node.matches(selectorViews)
+        )) {
+          hasNewTarget = true;
+          break;
+        }
+        if (node.querySelector && (
+          node.querySelector(selectorCount1) || node.querySelector(selectorCount2) || node.querySelector(selectorViews)
+        )) {
+          hasNewTarget = true;
+          break;
+        }
+      }
+      if (hasNewTarget) break;
+    }
+    if (hasNewTarget) debouncedLoadCounts();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
