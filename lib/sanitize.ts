@@ -1,5 +1,8 @@
 // lib/sanitize.ts — XSS 防护（HTML 转义 + 用户名清理）
 
+/** 密码最大长度（与 crypto.ts 共享，防止哈希截断与验证长度不一致） */
+export const MAX_PASSWORD_LENGTH = 20;
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
@@ -44,13 +47,13 @@ export function validateEmail(email: string): string | null {
   return null;
 }
 
-/** 密码强度校验：8-20 位，包含字母和数字 */
+/** 密码强度校验：8-MAX_PASSWORD_LENGTH 位，包含字母和数字 */
 export function validatePasswordStrength(password: string): string | null {
   if (password.length < 8) {
     return '密码至少 8 个字符';
   }
-  if (password.length > 20) {
-    return '密码不能超过 20 个字符';
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    return `密码不能超过 ${MAX_PASSWORD_LENGTH} 个字符`;
   }
   if (!/[a-zA-Z]/.test(password)) {
     return '密码必须包含至少一个字母';

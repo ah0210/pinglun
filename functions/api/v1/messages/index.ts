@@ -130,19 +130,20 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
     return errorResponse(ErrorCode.UNAUTHORIZED, '请先登录', 401);
   }
 
+  // 并行获取：用户邮箱验证状态 + 全量配置
+  const [dbUserVerify, config] = await Promise.all([
+    user.role !== 'admin'
+      ? env.DB.prepare('SELECT email_verified FROM users WHERE id = ?').bind(user.userId).first<{ email_verified: number }>()
+      : Promise.resolve(null),
+    env.DB.prepare(
+      'SELECT min_message_length, max_message_length, require_captcha, daily_secret_limit, moderation_enabled, force_skip_turnstile, require_email_verification FROM board_config WHERE id = 1'
+    ).first<{ min_message_length: number; max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number; force_skip_turnstile: number; require_email_verification: number }>()
+  ]);
+
   // 邮箱验证检查（管理员豁免；require_email_verification 开关可由管理员关闭用于紧急降级）
-  if (user.role !== 'admin') {
-    const dbUser = await env.DB.prepare(
-      'SELECT email_verified FROM users WHERE id = ?'
-    ).bind(user.userId).first<{ email_verified: number }>();
-    if (dbUser && !dbUser.email_verified) {
-      // 检查是否开启了邮箱验证要求
-      const emailConfig = await env.DB.prepare(
-        'SELECT require_email_verification FROM board_config WHERE id = 1'
-      ).first<{ require_email_verification: number }>();
-      if (!emailConfig || emailConfig.require_email_verification) {
-        return errorResponse(ErrorCode.EMAIL_NOT_VERIFIED, '请先验证邮箱后再留言', 403);
-      }
+  if (user.role !== 'admin' && dbUserVerify && !dbUserVerify.email_verified) {
+    if (!config || config.require_email_verification) {
+      return errorResponse(ErrorCode.EMAIL_NOT_VERIFIED, '请先验证邮箱后再留言', 403);
     }
   }
 
@@ -171,11 +172,6 @@ export const onRequestPost = apiHandler(async (request, env, ctx, user) => {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '不能跨页面回复留言', 400);
     }
   }
-
-  // 获取配置
-  const config = await env.DB.prepare(
-    'SELECT min_message_length, max_message_length, require_captcha, daily_secret_limit, moderation_enabled, force_skip_turnstile FROM board_config WHERE id = 1'
-  ).first<{ min_message_length: number; max_message_length: number; require_captcha: number; daily_secret_limit: number; moderation_enabled: number; force_skip_turnstile: number }>();
 
   const minLength = config?.min_message_length || 2;
   const maxLength = config?.max_message_length || 500;

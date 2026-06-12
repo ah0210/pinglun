@@ -37,6 +37,22 @@ export const onRequestPost = apiHandler(async (request, env, ctx) => {
     }
   }
 
+  // IP 频率限制检查（10分钟内最多3次）
+  const clientIp = getClientIp(request);
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const attempts = await env.DB.prepare(
+    'SELECT COUNT(*) as count FROM register_attempts WHERE ip_address = ? AND created_at > ?'
+  ).bind(clientIp, tenMinutesAgo).first<{ count: number }>();
+
+  if (attempts && attempts.count >= 3) {
+    return errorResponse(ErrorCode.RATE_LIMITED, '注册尝试过于频繁，请 10 分钟后再试', 429);
+  }
+
+  // 记录此次注册尝试
+  await env.DB.prepare(
+    'INSERT INTO register_attempts (ip_address) VALUES (?)'
+  ).bind(clientIp).run();
+
   const username = sanitizeUsername(body.username);
   const email = sanitizeEmail(body.email);
   const phone = body.phone.trim();

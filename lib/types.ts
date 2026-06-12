@@ -198,7 +198,7 @@ export function toPublicUser(u: DbUser): PublicUser {
     id: u.id,
     username: u.username,
     displayName: u.display_name || u.username,
-    phone: u.phone,
+    // phone 故意不包含：避免通过公共 API 泄露手机号
     avatar: u.avatar,
     role: u.role,
     bio: u.bio,

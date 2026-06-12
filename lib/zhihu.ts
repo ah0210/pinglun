@@ -44,8 +44,8 @@ export async function exchangeCodeForToken(params: {
     code,
   });
 
-  console.log('[知乎 Token 交换] 请求 URL:', `${ZHIHU_BASE_URL}/access_token`);
-  console.log('[知乎 Token 交换] 请求参数:', { app_id: appId, grant_type: 'authorization_code', redirect_uri: redirectUri, code: code.substring(0, 8) + '...' });
+  // 仅记录脱敏摘要，不打印 app_key / code 完整值
+  console.log('[知乎 Token 交换] 发起请求, code_prefix:', code.substring(0, 6) + '...');
 
   const resp = await fetch(`${ZHIHU_BASE_URL}/access_token`, {
     method: 'POST',
@@ -53,24 +53,24 @@ export async function exchangeCodeForToken(params: {
     body: body.toString(),
   });
 
-  const rawText = await resp.text();
+  // 不打印原始响应（可能含 access_token）
   console.log('[知乎 Token 交换] HTTP 状态:', resp.status);
-  console.log('[知乎 Token 交换] 原始响应:', rawText);
 
+  const rawText = await resp.text();
   let data: any;
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error(`知乎 Token 交换失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
+    throw new Error(`知乎 Token 交换失败: 响应非 JSON (${resp.status})`);
   }
 
   if (!resp.ok || (data.code && data.code !== 20000)) {
-    const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
+    const errMsg = data.data || data.error || data.message || data.error_description || `HTTP ${resp.status}`;
     throw new Error(`知乎 Token 交换失败 (${data.code || resp.status}): ${errMsg}`);
   }
 
   if (!data.access_token) {
-    throw new Error(`知乎 Token 交换失败: 响应缺少 access_token, 完整响应: ${rawText.substring(0, 300)}`);
+    throw new Error(`知乎 Token 交换失败: 响应缺少 access_token`);
   }
 
   return data as ZhihuTokenResponse;
@@ -78,30 +78,31 @@ export async function exchangeCodeForToken(params: {
 
 /** 使用 access_token 获取知乎用户信息 */
 export async function fetchZhihuUser(accessToken: string): Promise<ZhihuUserInfo> {
-  console.log('[知乎用户信息] 请求 URL:', `${ZHIHU_BASE_URL}/user`);
+  // 不打印 access_token 本身
+  console.log('[知乎用户信息] 发起请求');
 
   const resp = await fetch(`${ZHIHU_BASE_URL}/user`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  const rawText = await resp.text();
+  // 不打印原始响应（含用户姓名/邮箱/手机号等 PII）
   console.log('[知乎用户信息] HTTP 状态:', resp.status);
-  console.log('[知乎用户信息] 原始响应:', rawText);
 
+  const rawText = await resp.text();
   let data: any;
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new Error(`知乎用户信息获取失败: 响应非 JSON (${resp.status}): ${rawText.substring(0, 200)}`);
+    throw new Error(`知乎用户信息获取失败: 响应非 JSON (${resp.status})`);
   }
 
   if (!resp.ok || (data.code && data.code !== 20000)) {
-    const errMsg = data.data || data.error || data.message || data.error_description || rawText.substring(0, 200);
+    const errMsg = data.data || data.error || data.message || data.error_description || `HTTP ${resp.status}`;
     throw new Error(`知乎用户信息获取失败 (${data.code || resp.status}): ${errMsg}`);
   }
 
   if (!data.uid) {
-    throw new Error(`知乎用户信息获取失败: 响应缺少 uid, 完整响应: ${rawText.substring(0, 300)}`);
+    throw new Error(`知乎用户信息获取失败: 响应缺少 uid`);
   }
 
   /**
@@ -119,7 +120,8 @@ export async function fetchZhihuUser(accessToken: string): Promise<ZhihuUserInfo
     email: data.email || '',
   };
 
-  console.log('[知乎用户信息] 解析结果:', { uid: userInfo.uid, fullname: userInfo.fullname, email: userInfo.email, phone_no: userInfo.phone_no });
+  // 仅记录 uid（非 PII），不打印邮箱/手机/姓名
+  console.log('[知乎用户信息] 解析成功, uid:', userInfo.uid, 'has_email:', !!userInfo.email, 'has_phone:', !!userInfo.phone_no);
 
   return userInfo;
 }

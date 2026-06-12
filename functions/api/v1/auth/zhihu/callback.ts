@@ -3,6 +3,8 @@
 import { exchangeCodeForToken, fetchZhihuUser } from '../../../../../lib/zhihu';
 import { signAccessToken, generateToken, hashToken, getRefreshTokenExpiry } from '../../../../../lib/jwt';
 import { getAvatarUrl } from '../../../../../lib/avatar';
+import { hashPassword } from '../../../../../lib/crypto';
+import { withCors } from '../../../../../lib/cors';
 import type { Env, DbUser, DbOAuthConnection } from '../../../../../lib/types';
 
 const OAUTH_PLACEHOLDER_EMAIL_DOMAIN = 'oauth.placeholder';
@@ -10,12 +12,21 @@ const DEFAULT_REDIRECT_URL = 'https://www.17you.com/';
 
 export const onRequestGet = async (context: EventContext<Env, any, Record<string, unknown>>) => {
   const { request, env } = context;
+  try {
+    const response = await handleCallback(context);
+    return withCors(response, request, env);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : '知乎授权失败';
+    console.error('知乎 OAuth 回调错误:', message);
+    return withCors(redirectToLogin(env, `oauth_error=${encodeURIComponent(message)}`), request, env);
+  }
+};
+
+async function handleCallback(context: EventContext<Env, any, Record<string, unknown>>): Promise<Response> {
+  const { request, env } = context;
   const url = new URL(request.url);
 
-  // 调试：记录知乎回调的完整 URL 和参数
-  console.log('[知乎 OAuth 回调] 完整 URL:', request.url);
-  console.log('[知乎 OAuth 回调] search params:', Object.fromEntries(url.searchParams.entries()));
-  console.log('[知乎 OAuth 回调] Cookie:', request.headers.get('Cookie') || '(none)');
+  console.log('[知乎 OAuth 回调] 接收到回调请求');
 
   // 1. 检查知乎是否返回了错误（用户拒绝授权等）
   const errorParam = url.searchParams.get('error');
@@ -28,8 +39,8 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
   // 2. 验证 authorization_code 参数（知乎黑客松 OAuth 回调参数名为 authorization_code，而非 code）
   const code = url.searchParams.get('authorization_code') || url.searchParams.get('code');
   if (!code) {
-    console.error('[知乎 OAuth 回调] 缺少 authorization_code 参数，收到的参数:', Object.fromEntries(url.searchParams.entries()));
-    return redirectToLogin(env, `oauth_error=missing_code&debug_url=${encodeURIComponent(request.url)}`);
+    console.error('[知乎 OAuth 回调] 缺少 authorization_code 参数');
+    return redirectToLogin(env, 'oauth_error=missing_code');
   }
 
   // 3. 从 Cookie 中读取 redirect 地址（知乎黑客松 OAuth 不回传 state，仅从 cookie 提取 redirect）
@@ -175,7 +186,6 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
 
         // 生成不可用密码（OAuth 用户无需密码登录）
         const randomPassword = generateToken();
-        const { hashPassword } = await import('../../../../../lib/crypto');
         const passwordHash = await hashPassword(randomPassword);
 
         const result = await env.DB.prepare(
@@ -213,41 +223,32 @@ export const onRequestGet = async (context: EventContext<Env, any, Record<string
     // 8. 更新最后登录时间
     await env.DB.prepare('UPDATE users SET last_login_at = datetime("now") WHERE id = ?').bind(userId).run();
 
-    // 9. 签发双 Token
-    const accessToken = await signAccessToken({
-      userId: dbUser.id,
-      username: dbUser.username,
-      role: dbUser.role,
-    }, env);
-
-    const refreshToken = generateToken();
-    const refreshTokenHash = await hashToken(refreshToken);
-    const refreshExpiry = getRefreshTokenExpiry();
-    const expiresAt = new Date(Date.now() + refreshExpiry * 1000).toISOString();
-
+    // 9. 生成 5 分钟有效的临时 auth_code 并存入 oauth_auth_codes 表
+    const authCode = generateToken();
+    const codeExpiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     await env.DB.prepare(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
-    ).bind(userId, refreshTokenHash, expiresAt).run();
+      'INSERT INTO oauth_auth_codes (code, user_id, expires_at) VALUES (?, ?, ?)'
+    ).bind(authCode, userId, codeExpiresAt).run();
 
-    // 10. 302 重定向前端页面（Access Token 放 URL fragment，Refresh Token 放 Cookie）
-    const redirectUrl = savedRedirect || DEFAULT_REDIRECT_URL;
-    const separator = redirectUrl.includes('#') ? '&' : '#';
+    // 10. 302 重定向前端页面，并在 URL query 参数中携带 auth_code
+    const redirectUrlObj = new URL(savedRedirect || DEFAULT_REDIRECT_URL);
+    redirectUrlObj.searchParams.set('auth_code', authCode);
+    const redirectUrl = redirectUrlObj.toString();
 
     const resp = new Response(null, {
       status: 302,
       headers: {
-        Location: `${redirectUrl}${separator}access_token=${accessToken}`,
+        Location: redirectUrl,
+        'Set-Cookie': `zhihu_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth/zhihu/callback; Max-Age=0`,
       },
     });
-    resp.headers.append('Set-Cookie', `refresh_token=${refreshToken}; HttpOnly; Secure; SameSite=None; Path=/api/v1/auth; Max-Age=${refreshExpiry}`);
-    resp.headers.append('Set-Cookie', `zhihu_oauth_state=; HttpOnly; Secure; SameSite=Lax; Path=/api/v1/auth/zhihu/callback; Max-Age=0`);
     return resp;
   } catch (err) {
     const message = err instanceof Error ? err.message : '知乎授权失败';
     console.error('知乎 OAuth 回调错误:', message);
     return redirectToLogin(env, `oauth_error=${encodeURIComponent(message)}`);
   }
-};
+}
 
 /** 从 Cookie 中获取指定值 */
 function getCookieValue(request: Request, name: string): string | null {

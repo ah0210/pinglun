@@ -251,5 +251,24 @@ CREATE INDEX IF NOT EXISTS idx_analytics_page_daily_views ON analytics_page_dail
 CREATE INDEX IF NOT EXISTS idx_analytics_page_totals_views ON analytics_page_totals(views DESC);
 CREATE INDEX IF NOT EXISTS idx_analytics_page_totals_updated ON analytics_page_totals(updated_at DESC);
 
+-- Zhihu OAuth 换码表
+CREATE TABLE IF NOT EXISTS oauth_auth_codes (
+  code       TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_auth_codes_expires ON oauth_auth_codes(expires_at);
+
+-- 注册尝试记录表（用于IP频率限制）
+CREATE TABLE IF NOT EXISTS register_attempts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip_address TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_register_attempts_ip ON register_attempts(ip_address, created_at);
+
 -- 记录迁移版本
 INSERT OR IGNORE INTO _migrations (name) VALUES ('001_init');

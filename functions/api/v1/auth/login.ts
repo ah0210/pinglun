@@ -25,10 +25,15 @@ export const onRequestPost = apiHandler(async (request, env) => {
   const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
   const lockoutSince = new Date(Date.now() - LOCKOUT_SECONDS * 1000).toISOString();
 
-  // 查询锁定时间窗口内的失败次数
-  const recentFails = await env.DB.prepare(
-    'SELECT COUNT(*) as count FROM login_attempts WHERE ip_address = ? AND success = 0 AND created_at > ?'
-  ).bind(clientIP, lockoutSince).first<{ count: number }>();
+  // 并行查询最近失败次数与 Turnstile 配置
+  const [recentFails, turnstileConfig] = await Promise.all([
+    env.DB.prepare(
+      'SELECT COUNT(*) as count FROM login_attempts WHERE ip_address = ? AND success = 0 AND created_at > ?'
+    ).bind(clientIP, lockoutSince).first<{ count: number }>(),
+    env.DB.prepare(
+      'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
+    ).first<{ force_skip_turnstile: number }>()
+  ]);
 
   if (recentFails && recentFails.count >= MAX_ATTEMPTS) {
     const oldestFail = await env.DB.prepare(
@@ -41,9 +46,6 @@ export const onRequestPost = apiHandler(async (request, env) => {
   }
 
   // Turnstile 验证（仅管理员开启紧急降级时跳过）
-  const turnstileConfig = await env.DB.prepare(
-    'SELECT force_skip_turnstile FROM board_config WHERE id = 1'
-  ).first<{ force_skip_turnstile: number }>();
   if (!shouldSkipTurnstile(env.TURNSTILE_SECRET_KEY || '', turnstileConfig?.force_skip_turnstile === 1)) {
     if (!body.turnstileToken || !body.turnstileToken.trim()) {
       return errorResponse(ErrorCode.VALIDATION_ERROR, '请完成验证码验证', 400);
