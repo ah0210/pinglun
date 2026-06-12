@@ -598,9 +598,12 @@ GuestBoard.unmountAuthBar();
 | POST | `/api/v1/auth/reset-password` | 无 | 重置密码（Token 验证） |
 | POST | `/api/v1/auth/change-email` | JWT | 修改邮箱 |
 | GET | `/api/v1/messages` | 可选 | 留言列表 |
-| GET | `/api/v1/messages/counts?pageId=...` | 无 | 按 `page_id` 批量统计留言数量（不检查状态） |
+| GET | `/api/v1/messages/counts?pageId=...` | 无 | 按 `page_id` 批量统计留言数量 + 浏览量 |
 | POST | `/api/v1/messages` | JWT + Turnstile + 邮箱验证 | 提交留言 |
 | GET | `/api/v1/messages/:id` | JWT（秘密） | 单条留言 |
+| GET | `/api/v1/analytics/page?pageId=...` | 无 | 单页浏览量/留言数统计 |
+| GET | `/api/v1/analytics/trending?limit=10&days=30` | 无 | 热门页面排行榜（CDN 缓存 600s） |
+| POST | `/api/v1/analytics/view` | 无 | 访问事件上报 |
 | POST | `/api/v1/setup` | 无 | 初始化管理员 |
 
 ### 管理员 API
@@ -618,6 +621,12 @@ GuestBoard.unmountAuthBar();
 | GET/POST | `/api/v1/admin/config` | 系统配置 |
 | POST | `/api/v1/admin/cleanup` | 手动清理 |
 | GET | `/api/v1/admin/logs` | 操作日志 |
+| GET | `/api/v1/admin/analytics/summary` | 流量概览（今日/昨日/7天/30天） |
+| GET | `/api/v1/admin/analytics/pages` | 页面表现列表（排序/搜索/分页） |
+| GET | `/api/v1/admin/analytics/channels` | 渠道统计 |
+| GET | `/api/v1/admin/analytics/referrers` | 来源域名统计 |
+| GET | `/api/v1/admin/analytics/search` | 搜索来源分析（引擎分布+着陆页+趋势+国家） |
+| GET | `/api/v1/admin/analytics/social` | 社交传播分析（平台分布+热门页+趋势） |
 
 ## 项目结构
 

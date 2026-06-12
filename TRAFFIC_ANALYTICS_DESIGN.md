@@ -950,3 +950,103 @@ README 需要增加“流量统计采集说明”，至少包含：
 - README 增加访问数据采集说明。
 - 后台配置页增加流量统计开关和前台浏览量显示开关。
 - 后台 SEO 评估表第一版采用表格、排序、标签和建议动作，不做繁琐图表。
+
+## 搜索来源分析（已实现）
+
+API：`GET /api/v1/admin/analytics/search?days=30`
+
+返回数据：
+
+- `engines`：搜索引擎来源分布（Google/Baidu/Bing 等各带来多少流量）
+- `pages`：搜索着陆页排行（哪些页面从搜索引擎获得最多流量）
+- `trend`：搜索流量趋势（按天统计，用于绘制趋势图）
+- `countries`：搜索流量国家/地区分布
+
+SEO 价值：
+
+- 判断应侧重哪个搜索引擎的优化策略（百度 vs Google 规则差异大）
+- 识别搜索流量最高的页面 = SEO 表现最好的页面
+- 分析着陆页的共同特征（标题模式、内容长度、关键词密度）
+- 发现"意外排名"页面（搜索流量高但未刻意优化），加强内容
+- 监控搜索流量趋势，及时发现下降并修正
+
+关于搜索关键词：现代搜索引擎通过 HTTPS 跳转，不再在 referrer 中传递关键词。如需关键词数据，需通过 Google Search Console API 或百度站长平台获取，属于宿主站点层面的集成。
+
+## 社交传播分析（已实现）
+
+API：`GET /api/v1/admin/analytics/social?days=30`
+
+返回数据：
+
+- `sources`：社交平台来源分布（按平台名称聚合，同一平台多个域名合并）
+  - 支持识别：微博、知乎、豆瓣、Twitter/X、Facebook、LinkedIn、Reddit、微信、QQ 等
+  - 同一平台多域名自动合并（如 weibo.com + m.weibo.cn → 微博）
+- `pages`：社交传播最多的页面排行
+- `trend`：社交流量趋势（按天统计）
+
+SEO 反哺方式：
+
+- 优化 OG 标签：如果知乎是主要社交来源，确保 `og:image` 是大图（知乎分享卡片最佳尺寸 1200x630）
+- 内容策略：社交传播多的页面 = 用户愿意分享的内容，多写类似主题
+- 社交按钮优化：在社交来源最多的平台放分享按钮
+
+## 热门页面排行榜（已实现）
+
+API：`GET /api/v1/analytics/trending?limit=10&days=30&sortBy=views`
+
+公开接口（无需认证），CDN 缓存 600s。
+
+参数：
+
+- `limit`：1-50，默认 10
+- `days`：1-180，默认 30
+- `sortBy`：`views` / `visitors` / `messageCount`，默认 `views`
+
+数据来源：`analytics_page_daily` 日聚合表（按时间窗口聚合，反映近期热度而非历史累计）
+
+安全措施：
+
+- 排序字段白名单，防止 SQL 注入
+- 只返回有 `pageUrl` 或 `canonicalUrl` 的页面，避免暴露内部 pageId
+- 参数严格校验（limit/days 上限）
+- CDN 缓存 600s，降低 D1 查询压力
+
+Hugo 集成（构建时预取）：
+
+```html
+{{- $url := printf "%s/api/v1/analytics/trending?limit=10&days=30" .Site.Params.guestbook.apiBase -}}
+{{- with resources.GetRemote $url -}}
+  {{- with .Err -}}
+    <!-- 静默失败 -->
+  {{- else -}}
+    {{- $data := .Content | transform.Unmarshal -}}
+    {{- if $data.success -}}
+    <div class="trending-posts">
+      <h3>热门文章</h3>
+      <ul>
+        {{- range $data.data -}}
+        <li><a href="{{ .pageUrl }}">{{ .pageTitle }}</a>
+          <span class="views">{{ .views }} 次浏览</span>
+        </li>
+        {{- end -}}
+      </ul>
+    </div>
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+```
+
+SEO 价值：
+
+- 内链锚文本包含页面标题，提升关键词相关性
+- 热门页面获得更多内链，权重传递
+- 用户点击增加 PV，形成正循环
+
+## 性能优化（已实现）
+
+- 内存缓存 `analytics_enabled` 配置（60s TTL），避免每次 PV 查询 D1
+- WaitUntil 异步写入：`recordPageView` 拆为同步判断 + 异步写入，`ctx.waitUntil()` 执行 D1 Batch
+- D1 Batch 合并写入：5 次串行写入 → 1 次 `env.DB.batch()`
+- 消除 COUNT(*) 慢查询：`getPageStats` 直接读 `message_count` 缓存字段
+- 客户端可见性检测：`document.visibilityState === 'visible'` 才上报 PV
+- localStorage/sessionStorage fallback：隐私模式/跨域 iframe 兼容
