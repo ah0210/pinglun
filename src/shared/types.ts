@@ -155,6 +155,8 @@ export interface SearchLandingPage {
   pageUrl: string;
   views: number;
   visitors: number;
+  totalViews: number;   // 该页面总浏览量（用于计算搜索占比）
+  topEngines: string[]; // 主要搜索引擎来源（Top 3 域名）
 }
 
 /** 流量趋势行 */

@@ -31,7 +31,48 @@ export const onRequestGet = apiHandler(async (request, env) => {
      GROUP BY page_id
      ORDER BY views DESC
      LIMIT 30`
-  ).bind(`-${days} days`).all();
+  ).bind(`-${days} days`).all<{ pageId: string; pageTitle: string; pageUrl: string; views: number; visitors: number }>();
+
+  // 2b. 为每个着陆页补充：总浏览量（用于计算搜索占比）+ 主要搜索引擎来源
+  const landingPages = pages.results || [];
+  if (landingPages.length > 0) {
+    const pageIds = landingPages.map(p => p.pageId);
+
+    // 批量获取各页面总浏览量
+    const totalViewsRows = await env.DB.prepare(
+      `SELECT page_id as pageId, views as totalViews
+       FROM analytics_page_totals
+       WHERE page_id IN (${pageIds.map(() => '?').join(',')})`
+    ).bind(...pageIds).all<{ pageId: string; totalViews: number }>();
+
+    const totalViewsMap = new Map(
+      (totalViewsRows.results || []).map(r => [r.pageId, r.totalViews])
+    );
+
+    // 批量获取各页面的搜索引擎分布（Top 3）
+    const engineRows = await env.DB.prepare(
+      `SELECT page_id as pageId, referrer_domain as engine, COUNT(*) as cnt
+       FROM analytics_events
+       WHERE channel = 'search' AND created_at >= datetime('now', ?)
+         AND page_id IN (${pageIds.map(() => '?').join(',')})
+       GROUP BY page_id, referrer_domain
+       ORDER BY page_id, cnt DESC`
+    ).bind(`-${days} days`, ...pageIds).all<{ pageId: string; engine: string; cnt: number }>();
+
+    // 按 pageId 聚合 Top 3 搜索引擎
+    const engineMap = new Map<string, string[]>();
+    for (const row of engineRows.results || []) {
+      const list = engineMap.get(row.pageId) || [];
+      if (list.length < 3) list.push(row.engine);
+      engineMap.set(row.pageId, list);
+    }
+
+    // 合并到着陆页数据
+    for (const page of landingPages) {
+      (page as any).totalViews = totalViewsMap.get(page.pageId) || page.views;
+      (page as any).topEngines = engineMap.get(page.pageId) || [];
+    }
+  }
 
   // 3. 搜索流量趋势（按天统计，用于绘制趋势图）
   const trend = await env.DB.prepare(
@@ -59,7 +100,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   return successResponse({
     engines: engines.results || [],
-    pages: pages.results || [],
+    pages: landingPages,
     trend: trend.results || [],
     countries: countries.results || [],
   }, noCacheHeaders());

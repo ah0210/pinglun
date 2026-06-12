@@ -66,7 +66,7 @@
           <n-data-table :columns="searchLandingColumns" :data="searchData.pages" size="small" />
         </n-tab-pane>
         <n-tab-pane name="trend" tab="搜索趋势">
-          <n-data-table :columns="trendColumns" :data="searchData.trend" size="small" :pagination="{ pageSize: 15 }" />
+          <n-data-table :columns="searchTrendColumns" :data="searchData.trend" size="small" :pagination="{ pageSize: 15 }" />
         </n-tab-pane>
         <n-tab-pane name="countries" tab="国家分布">
           <n-data-table :columns="countryColumns" :data="searchData.countries" size="small" />
@@ -92,7 +92,7 @@
           <n-data-table :columns="socialPageColumns" :data="socialData.pages" size="small" />
         </n-tab-pane>
         <n-tab-pane name="trend" tab="社交流量趋势">
-          <n-data-table :columns="trendColumns" :data="socialData.trend" size="small" :pagination="{ pageSize: 15 }" />
+          <n-data-table :columns="socialTrendColumns" :data="socialData.trend" size="small" :pagination="{ pageSize: 15 }" />
         </n-tab-pane>
       </n-tabs>
     </n-card>
@@ -101,7 +101,7 @@
 
 <script lang="ts" setup>
 import { h, onMounted, reactive, ref } from 'vue';
-import { NButton, NCard, NDataTable, NGi, NGrid, NH2, NInput, NPagination, NSelect, NSpace, NTabPane, NTabs, NTag } from 'naive-ui';
+import { NButton, NCard, NDataTable, NGi, NGrid, NH2, NInput, NPagination, NSelect, NSpace, NTabPane, NTabs, NTag, NTooltip } from 'naive-ui';
 import type { DataTableColumns, SelectOption } from 'naive-ui';
 import StatsCard from '../components/StatsCard.vue';
 import { useAuthStore } from '../stores/auth';
@@ -156,6 +156,139 @@ const headers = () => ({
   Authorization: `Bearer ${authStore.token}`,
 });
 
+// ===== SEO 多维度评估 =====
+
+/** SEO 评估结果 */
+interface SeoAssessment {
+  score: number;        // 0-100
+  level: 'success' | 'warning' | 'error' | 'info';
+  label: string;        // 一句话总结
+  tips: string[];       // 具体建议
+}
+
+/**
+ * 多维度 SEO 评估
+ * - 搜索占比（40%）：搜索流量占总流量比例，反映搜索引擎可见度
+ * - 互动率（30%）：留言数/浏览量，反映内容价值
+ * - 回访率（15%）：访客数/浏览量越低说明越多人只看一次
+ * - 时效性（15%）：最近访问距今天数，反映内容是否过时
+ */
+function assessSeo(row: AnalyticsPage): SeoAssessment {
+  const tips: string[] = [];
+  let score = 0;
+
+  // 维度1：搜索占比（0-40 分）
+  const searchRatio = row.views > 0 ? row.searchViews / row.views : 0;
+  if (searchRatio >= 0.5) {
+    score += 40;
+  } else if (searchRatio >= 0.3) {
+    score += 30;
+    tips.push('搜索占比尚可，可优化标题关键词');
+  } else if (searchRatio >= 0.1) {
+    score += 15;
+    tips.push('搜索占比较低，检查标题是否匹配搜索意图');
+  } else if (row.views >= 20) {
+    score += 5;
+    tips.push('搜索流量极少，标题可能缺少目标关键词');
+  } else {
+    score += 10; // 新页面，数据不足
+  }
+
+  // 维度2：互动率（0-30 分）
+  const engagementRate = row.views > 0 ? row.messageCount / row.views : 0;
+  if (engagementRate >= 0.05) {
+    score += 30;
+  } else if (engagementRate >= 0.02) {
+    score += 20;
+  } else if (engagementRate >= 0.005) {
+    score += 10;
+    tips.push('互动率偏低，可在文末增加互动引导');
+  } else if (row.views >= 50) {
+    score += 3;
+    tips.push('互动率极低，内容可能缺乏讨论点');
+  } else {
+    score += 10;
+  }
+
+  // 维度3：回访率（0-15 分，visitors/views 越接近 1 越好 = 每次都是新访客 = 内容有吸引力）
+  const revisitRatio = row.views > 0 ? row.visitors / row.views : 0;
+  if (revisitRatio >= 0.7) {
+    score += 15; // 大部分访客只看一次但有持续新访客
+  } else if (revisitRatio >= 0.4) {
+    score += 10;
+  } else {
+    score += 5;
+    tips.push('回访率低，考虑增加系列内容引导回访');
+  }
+
+  // 维度4：时效性（0-15 分）
+  if (row.lastViewAt) {
+    const daysSinceLastView = Math.floor(
+      (Date.now() - new Date(row.lastViewAt).getTime()) / 86400000
+    );
+    if (daysSinceLastView <= 3) {
+      score += 15;
+    } else if (daysSinceLastView <= 14) {
+      score += 10;
+    } else if (daysSinceLastView <= 30) {
+      score += 5;
+      tips.push('近 30 天访问减少，内容可能需要更新');
+    } else {
+      score += 0;
+      tips.push('内容已过时（超 30 天无访问），考虑更新或重写');
+    }
+  } else {
+    score += 5;
+  }
+
+  // 综合评级
+  let level: SeoAssessment['level'];
+  let label: string;
+  if (score >= 70) {
+    level = 'success';
+    label = '优秀';
+  } else if (score >= 45) {
+    level = 'info';
+    label = '良好';
+  } else if (score >= 25) {
+    level = 'warning';
+    label = '待优化';
+  } else {
+    level = 'error';
+    label = '需改进';
+  }
+
+  // 额外建议
+  if (row.views >= 100 && searchRatio < 0.05) {
+    tips.push('高流量但搜索占比极低 → 可能是社交爆款，建议补充搜索关键词');
+  }
+  if (row.searchViews >= 50 && engagementRate < 0.005) {
+    tips.push('搜索流量高但无互动 → 标题吸引点击但内容未满足需求');
+  }
+  if (row.messageCount > 0 && searchRatio < 0.1) {
+    tips.push('有互动但搜索占比低 → 内容有价值，优化标题可获更多搜索流量');
+  }
+
+  return { score, level, label, tips: tips.slice(0, 3) };
+}
+
+/** 渲染 SEO 评分标签（带 tooltip 显示建议） */
+function renderSeoTag(row: AnalyticsPage) {
+  const assessment = assessSeo(row);
+  const tag = h(NTag, {
+    type: assessment.level,
+    size: 'small',
+  }, () => `${assessment.score}分 ${assessment.label}`);
+
+  if (assessment.tips.length > 0) {
+    return h(NTooltip, {}, {
+      trigger: () => tag,
+      default: () => h('div', assessment.tips.map(t => h('div', { style: 'margin-bottom: 4px;' }, `• ${t}`))),
+    });
+  }
+  return tag;
+}
+
 // ===== 页面表现 =====
 
 const pageColumns: DataTableColumns<AnalyticsPage> = [
@@ -165,26 +298,34 @@ const pageColumns: DataTableColumns<AnalyticsPage> = [
     ellipsis: { tooltip: true },
     render: (row) => row.pageTitle || row.pageId,
   },
-  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
-  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
-  { title: '会话', key: 'sessions', width: 80, sorter: 'default' },
-  { title: '搜索 PV', key: 'searchViews', width: 100, sorter: 'default' },
-  { title: '留言', key: 'messageCount', width: 80, sorter: 'default' },
+  { title: 'PV', key: 'views', width: 70, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 70, sorter: 'default' },
+  { title: '搜索 PV', key: 'searchViews', width: 85, sorter: 'default' },
+  { title: '留言', key: 'messageCount', width: 65, sorter: 'default' },
+  {
+    title: '搜索占比',
+    key: 'searchRatio',
+    width: 90,
+    sorter: (a, b) => {
+      const ra = a.views > 0 ? a.searchViews / a.views : 0;
+      const rb = b.views > 0 ? b.searchViews / b.views : 0;
+      return ra - rb;
+    },
+    render: (row) => {
+      const ratio = row.views > 0 ? row.searchViews / row.views : 0;
+      return `${(ratio * 100).toFixed(1)}%`;
+    },
+  },
   {
     title: 'SEO',
     key: 'seo',
-    width: 110,
-    render: (row) => {
-      const ratio = row.views > 0 ? row.searchViews / row.views : 0;
-      if (ratio >= 0.5) return h(NTag, { type: 'success', size: 'small' }, () => '搜索有效');
-      if (row.views >= 20 && ratio < 0.1) return h(NTag, { type: 'warning', size: 'small' }, () => '需优化');
-      return h(NTag, { size: 'small' }, () => '观察');
-    },
+    width: 120,
+    render: renderSeoTag,
   },
   {
     title: '打开',
     key: 'open',
-    width: 70,
+    width: 60,
     render: (row) => row.pageUrl
       ? h('a', { href: row.pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none;' }, '打开')
       : '-',
@@ -211,6 +352,15 @@ const searchEngineColumns: DataTableColumns<AnalyticsBreakdownRow> = [
   { title: '搜索引擎', key: 'referrerDomain', ellipsis: { tooltip: true } },
   { title: 'PV', key: 'views', width: 80, sorter: 'default' },
   { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: '占比',
+    key: 'ratio',
+    width: 80,
+    render: (row, index) => {
+      const total = searchData.engines.reduce((s, e) => s + e.views, 0);
+      return total > 0 ? `${((row.views / total) * 100).toFixed(1)}%` : '-';
+    },
+  },
 ];
 
 const searchLandingColumns: DataTableColumns<SearchLandingPage> = [
@@ -220,28 +370,86 @@ const searchLandingColumns: DataTableColumns<SearchLandingPage> = [
     ellipsis: { tooltip: true },
     render: (row) => row.pageTitle || row.pageId,
   },
-  { title: '搜索 PV', key: 'views', width: 100, sorter: 'default' },
-  { title: '搜索 UV', key: 'visitors', width: 100, sorter: 'default' },
+  { title: '搜索 PV', key: 'views', width: 90, sorter: 'default' },
+  { title: '搜索 UV', key: 'visitors', width: 90, sorter: 'default' },
+  {
+    title: '搜索占比',
+    key: 'searchRatio',
+    width: 90,
+    sorter: (a, b) => (a.totalViews || 0) - (b.totalViews || 0),
+    render: (row) => {
+      const ratio = row.totalViews > 0
+        ? ((row.views / row.totalViews) * 100).toFixed(1) + '%'
+        : '-';
+      return ratio;
+    },
+  },
+  {
+    title: '主要引擎',
+    key: 'topEngines',
+    width: 140,
+    render: (row) => {
+      return row.topEngines?.length ? row.topEngines.slice(0, 3).join('、') : '-';
+    },
+  },
   {
     title: '打开',
     key: 'open',
-    width: 70,
+    width: 60,
     render: (row) => row.pageUrl
       ? h('a', { href: row.pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none;' }, '打开')
       : '-',
   },
 ];
 
-const trendColumns: DataTableColumns<AnalyticsTrendRow> = [
-  { title: '日期', key: 'date', width: 120 },
-  { title: 'PV', key: 'views', width: 100, sorter: 'default' },
-  { title: 'UV', key: 'visitors', width: 100, sorter: 'default' },
+/** 渲染趋势环比变化 */
+function renderChange(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? h('span', { style: 'color: #18a058;' }, '+∞') : '-';
+  const change = ((current - previous) / previous) * 100;
+  const color = change > 0 ? '#18a058' : change < 0 ? '#d03050' : '#999';
+  const arrow = change > 0 ? '↑' : change < 0 ? '↓' : '→';
+  return h('span', { style: `color: ${color}; font-size: 12px;` }, `${arrow}${Math.abs(change).toFixed(1)}%`);
+}
+
+const searchTrendColumns: DataTableColumns<AnalyticsTrendRow> = [
+  { title: '日期', key: 'date', width: 110 },
+  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: 'PV 环比',
+    key: 'viewsChange',
+    width: 100,
+    render: (row, index) => {
+      if (index === 0) return '-';
+      const prev = searchData.trend[index - 1];
+      return renderChange(row.views, prev.views);
+    },
+  },
+  {
+    title: 'UV 环比',
+    key: 'visitorsChange',
+    width: 100,
+    render: (row, index) => {
+      if (index === 0) return '-';
+      const prev = searchData.trend[index - 1];
+      return renderChange(row.visitors, prev.visitors);
+    },
+  },
 ];
 
 const countryColumns: DataTableColumns<AnalyticsBreakdownRow> = [
   { title: '国家', key: 'country', width: 100 },
   { title: 'PV', key: 'views', width: 80, sorter: 'default' },
   { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: '占比',
+    key: 'ratio',
+    width: 80,
+    render: (row) => {
+      const total = searchData.countries.reduce((s, c) => s + c.views, 0);
+      return total > 0 ? `${((row.views / total) * 100).toFixed(1)}%` : '-';
+    },
+  },
 ];
 
 // ===== 社交传播分析 =====
@@ -250,6 +458,15 @@ const socialSourceColumns: DataTableColumns<SocialSource> = [
   { title: '平台', key: 'platform', width: 120 },
   { title: 'PV', key: 'views', width: 80, sorter: 'default' },
   { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: '占比',
+    key: 'ratio',
+    width: 80,
+    render: (row) => {
+      const total = socialData.sources.reduce((s, src) => s + src.views, 0);
+      return total > 0 ? `${((row.views / total) * 100).toFixed(1)}%` : '-';
+    },
+  },
   {
     title: '来源域名',
     key: 'domains',
@@ -265,15 +482,41 @@ const socialPageColumns: DataTableColumns<SocialPage> = [
     ellipsis: { tooltip: true },
     render: (row) => row.pageTitle || row.pageId,
   },
-  { title: '社交流量', key: 'socialViews', width: 100, sorter: 'default' },
-  { title: '社交访客', key: 'socialVisitors', width: 100, sorter: 'default' },
+  { title: '社交流量', key: 'socialViews', width: 90, sorter: 'default' },
+  { title: '社交访客', key: 'socialVisitors', width: 90, sorter: 'default' },
   {
     title: '打开',
     key: 'open',
-    width: 70,
+    width: 60,
     render: (row) => row.pageUrl
       ? h('a', { href: row.pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none;' }, '打开')
       : '-',
+  },
+];
+
+const socialTrendColumns: DataTableColumns<AnalyticsTrendRow> = [
+  { title: '日期', key: 'date', width: 110 },
+  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: 'PV 环比',
+    key: 'viewsChange',
+    width: 100,
+    render: (row, index) => {
+      if (index === 0) return '-';
+      const prev = socialData.trend[index - 1];
+      return renderChange(row.views, prev.views);
+    },
+  },
+  {
+    title: 'UV 环比',
+    key: 'visitorsChange',
+    width: 100,
+    render: (row, index) => {
+      if (index === 0) return '-';
+      const prev = socialData.trend[index - 1];
+      return renderChange(row.visitors, prev.visitors);
+    },
   },
 ];
 
