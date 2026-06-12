@@ -13,7 +13,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(DISTINCT visitor_id) as visitors,
             COUNT(DISTINCT session_id) as sessions
      FROM analytics_events
-     WHERE created_at >= datetime('now', ?)
+     WHERE created_at >= datetime('now', '+8 hours', ?)
      GROUP BY channel
      ORDER BY views DESC`
   ).bind(`-${days} days`).all();

@@ -13,7 +13,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'search' AND created_at >= datetime('now', ?)
+     WHERE channel = 'search' AND created_at >= datetime('now', '+8 hours', ?)
      GROUP BY referrer_domain
      ORDER BY views DESC
      LIMIT 30`
@@ -27,7 +27,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'search' AND created_at >= datetime('now', ?)
+     WHERE channel = 'search' AND created_at >= datetime('now', '+8 hours', ?)
      GROUP BY page_id
      ORDER BY views DESC
      LIMIT 30`
@@ -53,7 +53,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
     const engineRows = await env.DB.prepare(
       `SELECT page_id as pageId, referrer_domain as engine, COUNT(*) as cnt
        FROM analytics_events
-       WHERE channel = 'search' AND created_at >= datetime('now', ?)
+       WHERE channel = 'search' AND created_at >= datetime('now', '+8 hours', ?)
          AND page_id IN (${pageIds.map(() => '?').join(',')})
        GROUP BY page_id, referrer_domain
        ORDER BY page_id, cnt DESC`
@@ -76,12 +76,12 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   // 3. 搜索流量趋势（按天统计，用于绘制趋势图）
   const trend = await env.DB.prepare(
-    `SELECT date(created_at) as date,
+    `SELECT date(created_at, '+8 hours') as date,
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'search' AND created_at >= datetime('now', ?)
-     GROUP BY date(created_at)
+     WHERE channel = 'search' AND created_at >= datetime('now', '+8 hours', ?)
+     GROUP BY date(created_at, '+8 hours')
      ORDER BY date ASC`
   ).bind(`-${days} days`).all();
 
@@ -91,7 +91,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'search' AND created_at >= datetime('now', ?)
+     WHERE channel = 'search' AND created_at >= datetime('now', '+8 hours', ?)
        AND country != ''
      GROUP BY country
      ORDER BY views DESC

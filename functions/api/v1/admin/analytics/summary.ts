@@ -9,7 +9,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COALESCE(SUM(visitors), 0) as visitors,
             COALESCE(SUM(sessions), 0) as sessions
      FROM analytics_page_daily
-     WHERE date = date('now')`
+     WHERE date = date('now', '+8 hours')`
   ).first();
 
   const yesterday = await env.DB.prepare(
@@ -17,14 +17,14 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COALESCE(SUM(visitors), 0) as visitors,
             COALESCE(SUM(sessions), 0) as sessions
      FROM analytics_page_daily
-     WHERE date = date('now', '-1 day')`
+     WHERE date = date('now', '+8 hours', '-1 day')`
   ).first();
 
   const windows = await env.DB.prepare(
     `SELECT
-       COALESCE(SUM(CASE WHEN date >= date('now', '-6 days') THEN views ELSE 0 END), 0) as last7Views,
-       COALESCE(SUM(CASE WHEN date >= date('now', '-29 days') THEN views ELSE 0 END), 0) as last30Views,
-       COALESCE(SUM(CASE WHEN date BETWEEN date('now', '-13 days') AND date('now', '-7 days') THEN views ELSE 0 END), 0) as previous7Views
+       COALESCE(SUM(CASE WHEN date >= date('now', '+8 hours', '-6 days') THEN views ELSE 0 END), 0) as last7Views,
+       COALESCE(SUM(CASE WHEN date >= date('now', '+8 hours', '-29 days') THEN views ELSE 0 END), 0) as last30Views,
+       COALESCE(SUM(CASE WHEN date BETWEEN date('now', '+8 hours', '-13 days') AND date('now', '+8 hours', '-7 days') THEN views ELSE 0 END), 0) as previous7Views
      FROM analytics_page_daily`
   ).first();
 

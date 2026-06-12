@@ -45,7 +45,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'social' AND created_at >= datetime('now', ?)
+     WHERE channel = 'social' AND created_at >= datetime('now', '+8 hours', ?)
      GROUP BY referrer_domain
      ORDER BY views DESC
      LIMIT 50`
@@ -86,7 +86,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as socialViews,
             COUNT(DISTINCT visitor_id) as socialVisitors
      FROM analytics_events
-     WHERE channel = 'social' AND created_at >= datetime('now', ?)
+     WHERE channel = 'social' AND created_at >= datetime('now', '+8 hours', ?)
      GROUP BY page_id
      ORDER BY socialViews DESC
      LIMIT 30`
@@ -94,12 +94,12 @@ export const onRequestGet = apiHandler(async (request, env) => {
 
   // 3. 社交流量趋势（按天统计）
   const trend = await env.DB.prepare(
-    `SELECT date(created_at) as date,
+    `SELECT date(created_at, '+8 hours') as date,
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE channel = 'social' AND created_at >= datetime('now', ?)
-     GROUP BY date(created_at)
+     WHERE channel = 'social' AND created_at >= datetime('now', '+8 hours', ?)
+     GROUP BY date(created_at, '+8 hours')
      ORDER BY date ASC`
   ).bind(`-${days} days`).all();
 

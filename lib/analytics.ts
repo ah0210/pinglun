@@ -66,8 +66,9 @@ function normalizeChannel(value: unknown): Channel {
     : 'direct';
 }
 
+/** 获取中国时区（UTC+8）的今日日期 */
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
 }
 
 function dateFromCreatedAt(createdAt: string | null | undefined): string {
@@ -170,7 +171,7 @@ export async function recordPageView(
   // 阶段1：去重检查（需同步等结果）
   const duplicate = await env.DB.prepare(
     `SELECT id FROM analytics_events
-     WHERE page_id = ? AND visitor_id = ? AND created_at >= datetime('now', '-5 seconds')
+     WHERE page_id = ? AND visitor_id = ? AND created_at >= datetime('now', '+8 hours', '-5 seconds')
      LIMIT 1`
   ).bind(pageId, visitorId).first<{ id: number }>();
 
@@ -250,7 +251,7 @@ export async function recordPageView(
     env.DB.prepare(
       `INSERT INTO analytics_page_daily (
          date, page_id, page_title, page_url, canonical_url, views, visitors, sessions, ${channelColumn}, updated_at
-       ) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, datetime('now'))
+       ) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, datetime('now', '+8 hours'))
        ON CONFLICT(date, page_id) DO UPDATE SET
          page_title = excluded.page_title,
          page_url = excluded.page_url,
@@ -259,13 +260,13 @@ export async function recordPageView(
          visitors = analytics_page_daily.visitors + 1,
          sessions = analytics_page_daily.sessions + 1,
          ${channelColumn} = ${channelColumn} + 1,
-         updated_at = datetime('now')`
+         updated_at = datetime('now', '+8 hours')`
     ).bind(date, pageId, pageTitle, pageUrl, canonicalUrl),
     // 4e. 总聚合
     env.DB.prepare(
       `INSERT INTO analytics_page_totals (
          page_id, page_title, page_url, canonical_url, views, visitors, sessions, search_views, message_count, last_view_at, updated_at
-       ) VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?, datetime('now'), datetime('now'))
+       ) VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
        ON CONFLICT(page_id) DO UPDATE SET
          page_title = excluded.page_title,
          page_url = excluded.page_url,
@@ -275,8 +276,8 @@ export async function recordPageView(
          sessions = analytics_page_totals.sessions + 1,
          search_views = analytics_page_totals.search_views + ?,
          message_count = max(analytics_page_totals.message_count, excluded.message_count),
-         last_view_at = datetime('now'),
-         updated_at = datetime('now')`
+         last_view_at = datetime('now', '+8 hours'),
+         updated_at = datetime('now', '+8 hours')`
     ).bind(pageId, pageTitle, pageUrl, canonicalUrl, channel === 'search' ? 1 : 0, messageCount, channel === 'search' ? 1 : 0),
   ]).then(() => {});
 
@@ -296,20 +297,20 @@ export async function adjustMessageCount(
 
   await env.DB.prepare(
     `INSERT INTO analytics_page_totals (page_id, page_url, message_count, last_message_at, updated_at)
-     VALUES (?, ?, max(0, ?), datetime('now'), datetime('now'))
+     VALUES (?, ?, max(0, ?), datetime('now', '+8 hours'), datetime('now', '+8 hours'))
      ON CONFLICT(page_id) DO UPDATE SET
        page_url = CASE WHEN excluded.page_url != '' THEN excluded.page_url ELSE analytics_page_totals.page_url END,
        message_count = max(0, analytics_page_totals.message_count + ?),
-       last_message_at = datetime('now'),
-       updated_at = datetime('now')`
+       last_message_at = datetime('now', '+8 hours'),
+       updated_at = datetime('now', '+8 hours')`
   ).bind(pageId, pageUrl || '', delta, delta).run();
 
   await env.DB.prepare(
     `INSERT INTO analytics_page_daily (date, page_id, page_url, message_count, updated_at)
-     VALUES (?, ?, ?, max(0, ?), datetime('now'))
+     VALUES (?, ?, ?, max(0, ?), datetime('now', '+8 hours'))
      ON CONFLICT(date, page_id) DO UPDATE SET
        page_url = CASE WHEN excluded.page_url != '' THEN excluded.page_url ELSE analytics_page_daily.page_url END,
        message_count = max(0, analytics_page_daily.message_count + ?),
-       updated_at = datetime('now')`
+       updated_at = datetime('now', '+8 hours')`
   ).bind(date, pageId, pageUrl || '', delta, delta).run();
 }

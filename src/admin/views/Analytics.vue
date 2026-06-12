@@ -247,15 +247,19 @@ function assessSeo(row: AnalyticsPage): SeoAssessment {
   if (score >= 70) {
     level = 'success';
     label = '优秀';
+    if (tips.length === 0) tips.push('搜索可见度高，互动良好，继续保持');
   } else if (score >= 45) {
     level = 'info';
     label = '良好';
+    if (tips.length === 0) tips.push('整体表现不错，仍有优化空间');
   } else if (score >= 25) {
     level = 'warning';
     label = '待优化';
+    if (tips.length === 0) tips.push('建议提升搜索关键词覆盖和内容互动性');
   } else {
     level = 'error';
     label = '需改进';
+    if (tips.length === 0) tips.push('搜索流量和互动均不足，需重点优化标题和内容');
   }
 
   // 额外建议

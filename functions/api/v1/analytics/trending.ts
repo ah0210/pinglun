@@ -26,7 +26,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             SUM(visitors) as visitors,
             SUM(message_count) as messageCount
      FROM analytics_page_daily
-     WHERE date >= date('now', ?)
+     WHERE date >= date('now', '+8 hours', ?)
      GROUP BY page_id
      ORDER BY ${sortBy} DESC
      LIMIT ?`

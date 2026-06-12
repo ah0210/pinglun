@@ -81,8 +81,8 @@ function getChannel(referrer: string): string {
   }
 
   if (host === window.location.hostname.replace(/^www\./, '')) return 'internal';
-  if (/(google|bing|baidu|sogou|so\.com|duckduckgo|yahoo|yandex)/i.test(host)) return 'search';
-  if (/(weibo|zhihu|wechat|facebook|twitter|x\.com|linkedin|douban|xiaohongshu)/i.test(host)) return 'social';
+  if (/(google|bing|baidu|sogou|so\.com|duckduckgo|yahoo|yandex|shenma|sm\.cn)/i.test(host)) return 'search';
+  if (/(weibo|zhihu|facebook|twitter|x\.com|t\.co|linkedin|douban|xiaohongshu|xhslink|reddit|pinterest|tumblr|vk\.com|qq\.com|mp\.weixin|digg|mix\.com)/i.test(host)) return 'social';
   return 'referral';
 }
 

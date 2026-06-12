@@ -12,7 +12,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
             COUNT(*) as views,
             COUNT(DISTINCT visitor_id) as visitors
      FROM analytics_events
-     WHERE referrer_domain != '' AND created_at >= datetime('now', ?)
+     WHERE referrer_domain != '' AND created_at >= datetime('now', '+8 hours', ?)
      GROUP BY referrer_domain
      ORDER BY views DESC
      LIMIT 50`
