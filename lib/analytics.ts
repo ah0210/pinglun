@@ -74,15 +74,28 @@ function dateFromCreatedAt(createdAt: string | null | undefined): string {
   return createdAt ? createdAt.slice(0, 10) : today();
 }
 
+/** 内存缓存：analytics_enabled 配置（60s TTL，避免每次 PV 查询 D1） */
+let analyticsEnabledCache: { value: boolean; expiresAt: number } | null = null;
+const ANALYTICS_CACHE_TTL = 60_000;
+
 export async function isAnalyticsEnabled(env: Env): Promise<boolean> {
+  const now = Date.now();
+  if (analyticsEnabledCache && now < analyticsEnabledCache.expiresAt) {
+    return analyticsEnabledCache.value;
+  }
   const config = await env.DB.prepare(
     'SELECT analytics_enabled FROM board_config WHERE id = 1'
   ).first<{ analytics_enabled: number }>();
-  return config?.analytics_enabled !== 0;
+  const value = config?.analytics_enabled !== 0;
+  analyticsEnabledCache = { value, expiresAt: now + ANALYTICS_CACHE_TTL };
+  return value;
 }
 
+/**
+ * 获取页面统计数据（直接读取缓存字段，不再实时 COUNT 留言数）
+ * message_count 由 adjustMessageCount() 在留言增删时维护
+ */
 export async function getPageStats(env: Env, pageId: string): Promise<PageStats> {
-  const approvedMessageCount = await getApprovedMessageCount(env, pageId);
   const row = await env.DB.prepare(
     `SELECT page_id, page_title, page_url, canonical_url, views, visitors, sessions, search_views, message_count
      FROM analytics_page_totals
@@ -100,14 +113,6 @@ export async function getPageStats(env: Env, pageId: string): Promise<PageStats>
   }>();
 
   if (row) {
-    if ((row.message_count || 0) !== approvedMessageCount) {
-      await env.DB.prepare(
-        `UPDATE analytics_page_totals
-         SET message_count = ?, updated_at = datetime('now')
-         WHERE page_id = ?`
-      ).bind(approvedMessageCount, pageId).run();
-    }
-
     return {
       pageId: row.page_id,
       pageTitle: row.page_title || '',
@@ -117,7 +122,7 @@ export async function getPageStats(env: Env, pageId: string): Promise<PageStats>
       visitors: row.visitors || 0,
       sessions: row.sessions || 0,
       searchViews: row.search_views || 0,
-      messageCount: approvedMessageCount,
+      messageCount: row.message_count || 0,
     };
   }
 
@@ -130,7 +135,7 @@ export async function getPageStats(env: Env, pageId: string): Promise<PageStats>
     visitors: 0,
     sessions: 0,
     searchViews: 0,
-    messageCount: approvedMessageCount,
+    messageCount: 0,
   };
 }
 
@@ -141,7 +146,14 @@ async function getApprovedMessageCount(env: Env, pageId: string): Promise<number
   return row?.count || 0;
 }
 
-export async function recordPageView(env: Env, request: Request, body: AnalyticsViewBody): Promise<PageStats> {
+/**
+ * 记录页面访问事件（拆为同步判断 + 异步写入两阶段）
+ * - 同步阶段：去重检查 + 读取当前统计 + 构建乐观返回值
+ * - 异步阶段：D1 Batch 写入（由调用方通过 ctx.waitUntil() 异步执行）
+ */
+export async function recordPageView(
+  env: Env, request: Request, body: AnalyticsViewBody
+): Promise<{ stats: PageStats; writePromise: Promise<void> }> {
   const pageId = text(body.pageId, 500);
   const visitorId = text(body.visitorId, 128);
   const sessionId = text(body.sessionId, 128);
@@ -151,9 +163,11 @@ export async function recordPageView(env: Env, request: Request, body: Analytics
   }
 
   if (!(await isAnalyticsEnabled(env))) {
-    return getPageStats(env, pageId);
+    const stats = await getPageStats(env, pageId);
+    return { stats, writePromise: Promise.resolve() };
   }
 
+  // 阶段1：去重检查（需同步等结果）
   const duplicate = await env.DB.prepare(
     `SELECT id FROM analytics_events
      WHERE page_id = ? AND visitor_id = ? AND created_at >= datetime('now', '-5 seconds')
@@ -161,8 +175,17 @@ export async function recordPageView(env: Env, request: Request, body: Analytics
   ).bind(pageId, visitorId).first<{ id: number }>();
 
   if (duplicate) {
-    return getPageStats(env, pageId);
+    const stats = await getPageStats(env, pageId);
+    return { stats, writePromise: Promise.resolve() };
   }
+
+  // 阶段2：读取当前 page_totals 以构建乐观返回值
+  const currentStats = await env.DB.prepare(
+    `SELECT views, visitors, sessions, search_views, message_count
+     FROM analytics_page_totals WHERE page_id = ?`
+  ).bind(pageId).first<{
+    views: number; visitors: number; sessions: number; search_views: number; message_count: number;
+  }>();
 
   const pageTitle = text(body.pageTitle, 300);
   const pageUrl = text(body.pageUrl, 1000);
@@ -175,95 +198,89 @@ export async function recordPageView(env: Env, request: Request, body: Analytics
   const channel = normalizeChannel(body.channel);
   const channelColumn = CHANNEL_COLUMNS[channel];
   const date = today();
-  const messageCount = await getApprovedMessageCount(env, pageId);
+  const messageCount = currentStats?.message_count || 0;
 
-  await env.DB.prepare(
-    `INSERT INTO analytics_events (
-       page_id, page_title, page_url, canonical_url, referrer, referrer_domain,
-       utm_source, utm_medium, utm_campaign, channel, country, device_type,
-       screen_width, screen_height, viewport_width, viewport_height,
-       language, timezone, ip_address, visitor_id, session_id
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
+  // 阶段3：构建乐观返回值（基于 currentStats + 1，无需等写入完成）
+  const baseViews = currentStats?.views || 0;
+  const baseVisitors = currentStats?.visitors || 0;
+  const baseSessions = currentStats?.sessions || 0;
+  const baseSearchViews = currentStats?.search_views || 0;
+
+  const optimisticStats: PageStats = {
     pageId,
     pageTitle,
     pageUrl,
     canonicalUrl,
-    referrer,
-    referrerDomain,
-    utmSource,
-    utmMedium,
-    utmCampaign,
-    channel,
-    request.headers.get('CF-IPCountry') || '',
-    text(body.deviceType, 20),
-    int(body.screen?.width),
-    int(body.screen?.height),
-    int(body.viewport?.width),
-    int(body.viewport?.height),
-    text(body.language, 50),
-    text(body.timezone, 80),
-    getClientIp(request),
-    visitorId,
-    sessionId
-  ).run();
-
-  const visitorInsert = await env.DB.prepare(
-    'INSERT OR IGNORE INTO analytics_daily_visitors (date, page_id, visitor_id) VALUES (?, ?, ?)'
-  ).bind(date, pageId, visitorId).run();
-
-  const sessionInsert = await env.DB.prepare(
-    'INSERT OR IGNORE INTO analytics_daily_sessions (date, page_id, session_id) VALUES (?, ?, ?)'
-  ).bind(date, pageId, sessionId).run();
-
-  const visitorInc = visitorInsert.meta.changes || 0;
-  const sessionInc = sessionInsert.meta.changes || 0;
-
-  await env.DB.prepare(
-    `INSERT INTO analytics_page_daily (
-       date, page_id, page_title, page_url, canonical_url, views, visitors, sessions, ${channelColumn}, updated_at
-     ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, 1, datetime('now'))
-     ON CONFLICT(date, page_id) DO UPDATE SET
-       page_title = excluded.page_title,
-       page_url = excluded.page_url,
-       canonical_url = excluded.canonical_url,
-       views = analytics_page_daily.views + 1,
-       visitors = analytics_page_daily.visitors + ?,
-       sessions = analytics_page_daily.sessions + ?,
-       ${channelColumn} = ${channelColumn} + 1,
-       updated_at = datetime('now')`
-  ).bind(date, pageId, pageTitle, pageUrl, canonicalUrl, visitorInc, sessionInc, visitorInc, sessionInc).run();
-
-  await env.DB.prepare(
-    `INSERT INTO analytics_page_totals (
-       page_id, page_title, page_url, canonical_url, views, visitors, sessions, search_views, message_count, last_view_at, updated_at
-     ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now'))
-     ON CONFLICT(page_id) DO UPDATE SET
-       page_title = excluded.page_title,
-       page_url = excluded.page_url,
-       canonical_url = excluded.canonical_url,
-       views = analytics_page_totals.views + 1,
-       visitors = analytics_page_totals.visitors + ?,
-       sessions = analytics_page_totals.sessions + ?,
-       search_views = analytics_page_totals.search_views + ?,
-       message_count = max(analytics_page_totals.message_count, excluded.message_count),
-       last_view_at = datetime('now'),
-       updated_at = datetime('now')`
-  ).bind(
-    pageId,
-    pageTitle,
-    pageUrl,
-    canonicalUrl,
-    visitorInc,
-    sessionInc,
-    channel === 'search' ? 1 : 0,
+    views: baseViews + 1,
+    visitors: baseVisitors + 1,
+    sessions: baseSessions + 1,
+    searchViews: baseSearchViews + (channel === 'search' ? 1 : 0),
     messageCount,
-    visitorInc,
-    sessionInc,
-    channel === 'search' ? 1 : 0
-  ).run();
+  };
 
-  return getPageStats(env, pageId);
+  // 阶段4：D1 Batch 写入（可由调用方通过 ctx.waitUntil() 异步执行）
+  const writePromise = env.DB.batch([
+    // 4a. 插入原始事件
+    env.DB.prepare(
+      `INSERT INTO analytics_events (
+         page_id, page_title, page_url, canonical_url, referrer, referrer_domain,
+         utm_source, utm_medium, utm_campaign, channel, country, device_type,
+         screen_width, screen_height, viewport_width, viewport_height,
+         language, timezone, ip_address, visitor_id, session_id
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+      pageId, pageTitle, pageUrl, canonicalUrl, referrer, referrerDomain,
+      utmSource, utmMedium, utmCampaign, channel,
+      request.headers.get('CF-IPCountry') || '',
+      text(body.deviceType, 20),
+      int(body.screen?.width), int(body.screen?.height),
+      int(body.viewport?.width), int(body.viewport?.height),
+      text(body.language, 50), text(body.timezone, 80),
+      getClientIp(request), visitorId, sessionId
+    ),
+    // 4b. 去重访客
+    env.DB.prepare(
+      'INSERT OR IGNORE INTO analytics_daily_visitors (date, page_id, visitor_id) VALUES (?, ?, ?)'
+    ).bind(date, pageId, visitorId),
+    // 4c. 去重会话
+    env.DB.prepare(
+      'INSERT OR IGNORE INTO analytics_daily_sessions (date, page_id, session_id) VALUES (?, ?, ?)'
+    ).bind(date, pageId, sessionId),
+    // 4d. 日聚合
+    env.DB.prepare(
+      `INSERT INTO analytics_page_daily (
+         date, page_id, page_title, page_url, canonical_url, views, visitors, sessions, ${channelColumn}, updated_at
+       ) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, datetime('now'))
+       ON CONFLICT(date, page_id) DO UPDATE SET
+         page_title = excluded.page_title,
+         page_url = excluded.page_url,
+         canonical_url = excluded.canonical_url,
+         views = analytics_page_daily.views + 1,
+         visitors = analytics_page_daily.visitors + 1,
+         sessions = analytics_page_daily.sessions + 1,
+         ${channelColumn} = ${channelColumn} + 1,
+         updated_at = datetime('now')`
+    ).bind(date, pageId, pageTitle, pageUrl, canonicalUrl),
+    // 4e. 总聚合
+    env.DB.prepare(
+      `INSERT INTO analytics_page_totals (
+         page_id, page_title, page_url, canonical_url, views, visitors, sessions, search_views, message_count, last_view_at, updated_at
+       ) VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?, datetime('now'), datetime('now'))
+       ON CONFLICT(page_id) DO UPDATE SET
+         page_title = excluded.page_title,
+         page_url = excluded.page_url,
+         canonical_url = excluded.canonical_url,
+         views = analytics_page_totals.views + 1,
+         visitors = analytics_page_totals.visitors + 1,
+         sessions = analytics_page_totals.sessions + 1,
+         search_views = analytics_page_totals.search_views + ?,
+         message_count = max(analytics_page_totals.message_count, excluded.message_count),
+         last_view_at = datetime('now'),
+         updated_at = datetime('now')`
+    ).bind(pageId, pageTitle, pageUrl, canonicalUrl, channel === 'search' ? 1 : 0, messageCount, channel === 'search' ? 1 : 0),
+  ]).then(() => {});
+
+  return { stats: optimisticStats, writePromise };
 }
 
 export async function adjustMessageCount(

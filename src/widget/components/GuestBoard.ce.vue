@@ -237,9 +237,14 @@ onMounted(async () => {
   await messages.fetchConfig();
   await auth.init();
   await auth.handleOAuthCallback();
-  await fetchPageStats(props.pageId);
-  await trackPageView(props.pageId);
   await messages.fetchMessages(props.pageId);
+
+  // 仅在页面可见时上报 PV，避免后台标签页产生无效访问
+  if (document.visibilityState === 'visible') {
+    await trackPageView(props.pageId);
+  } else {
+    await fetchPageStats(props.pageId);
+  }
 });
 </script>
 

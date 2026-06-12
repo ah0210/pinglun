@@ -6,36 +6,55 @@ const VISITOR_KEY = 'guestbook_analytics_visitor_id';
 const SESSION_KEY = 'guestbook_analytics_session';
 const SESSION_TTL = 30 * 60 * 1000;
 
+/** 内存 fallback：隐私模式或跨域限制下 localStorage/sessionStorage 不可用 */
+const memoryVisitorId: { value: string | null } = { value: null };
+const memorySessionId: { value: string | null } = { value: null };
+
 function createId(prefix: string): string {
   const random = crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
   return `${prefix}_${random}`;
 }
 
 function getVisitorId(): string {
-  let id = localStorage.getItem(VISITOR_KEY);
-  if (!id) {
-    id = createId('v');
-    localStorage.setItem(VISITOR_KEY, id);
+  try {
+    let id = localStorage.getItem(VISITOR_KEY);
+    if (!id) {
+      id = createId('v');
+      localStorage.setItem(VISITOR_KEY, id);
+    }
+    return id;
+  } catch {
+    // 隐私模式或跨域 iframe 限制，使用内存 fallback
+    if (!memoryVisitorId.value) {
+      memoryVisitorId.value = createId('v');
+    }
+    return memoryVisitorId.value;
   }
-  return id;
 }
 
 function getSessionId(): string {
   const now = Date.now();
-  const raw = sessionStorage.getItem(SESSION_KEY);
-  if (raw) {
-    try {
-      const data = JSON.parse(raw) as { id: string; updatedAt: number };
-      if (data.id && now - data.updatedAt < SESSION_TTL) {
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: data.id, updatedAt: now }));
-        return data.id;
-      }
-    } catch {}
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (raw) {
+      try {
+        const data = JSON.parse(raw) as { id: string; updatedAt: number };
+        if (data.id && now - data.updatedAt < SESSION_TTL) {
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: data.id, updatedAt: now }));
+          return data.id;
+        }
+      } catch {}
+    }
+    const id = createId('s');
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id, updatedAt: now }));
+    return id;
+  } catch {
+    // 隐私模式或跨域 iframe 限制，使用内存 fallback
+    if (!memorySessionId.value) {
+      memorySessionId.value = createId('s');
+    }
+    return memorySessionId.value;
   }
-
-  const id = createId('s');
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id, updatedAt: now }));
-  return id;
 }
 
 function getCanonicalUrl(): string {
