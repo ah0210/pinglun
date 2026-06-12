@@ -3,6 +3,7 @@
   <div>
     <n-h2>流量分析</n-h2>
 
+    <!-- 概览卡片 -->
     <n-grid :cols="4" :x-gap="12" :y-gap="12" responsive="screen" item-responsive>
       <n-gi span="0:4 640:2 1024:1">
         <StatsCard label="今日 PV" :value="summary.today.views" prefix="PV" />
@@ -18,6 +19,7 @@
       </n-gi>
     </n-grid>
 
+    <!-- 页面表现 -->
     <n-card style="margin-top: 16px;" title="页面表现">
       <n-space style="margin-bottom: 12px;">
         <n-input v-model:value="search" placeholder="搜索页面标题 / ID / URL" clearable style="width: 260px" @keyup.enter="fetchPages(1)" />
@@ -32,33 +34,81 @@
       />
     </n-card>
 
-    <n-grid :cols="3" :x-gap="12" :y-gap="12" responsive="screen" item-responsive style="margin-top: 16px;">
-      <n-gi span="0:3 900:1">
+    <!-- 渠道 + 来源域名 -->
+    <n-grid :cols="2" :x-gap="12" :y-gap="12" responsive="screen" item-responsive style="margin-top: 16px;">
+      <n-gi span="0:2 900:1">
         <n-card title="渠道分布">
           <n-data-table :columns="channelColumns" :data="channels" size="small" />
         </n-card>
       </n-gi>
-      <n-gi span="0:3 900:1">
+      <n-gi span="0:2 900:1">
         <n-card title="来源域名">
           <n-data-table :columns="referrerColumns" :data="referrers" size="small" />
         </n-card>
       </n-gi>
-      <n-gi span="0:3 900:1">
-        <n-card title="搜索入口">
-          <n-data-table :columns="searchColumns" :data="searchEngines" size="small" />
-        </n-card>
-      </n-gi>
     </n-grid>
+
+    <!-- 搜索来源分析 -->
+    <n-card style="margin-top: 16px;" title="搜索来源分析">
+      <template #header-extra>
+        <n-select
+          v-model:value="searchDays"
+          :options="daysOptions"
+          style="width: 120px"
+          @update:value="fetchSearchData"
+        />
+      </template>
+      <n-tabs type="line" animated>
+        <n-tab-pane name="engines" tab="搜索引擎">
+          <n-data-table :columns="searchEngineColumns" :data="searchData.engines" size="small" />
+        </n-tab-pane>
+        <n-tab-pane name="landing" tab="搜索着陆页">
+          <n-data-table :columns="searchLandingColumns" :data="searchData.pages" size="small" />
+        </n-tab-pane>
+        <n-tab-pane name="trend" tab="搜索趋势">
+          <n-data-table :columns="trendColumns" :data="searchData.trend" size="small" :pagination="{ pageSize: 15 }" />
+        </n-tab-pane>
+        <n-tab-pane name="countries" tab="国家分布">
+          <n-data-table :columns="countryColumns" :data="searchData.countries" size="small" />
+        </n-tab-pane>
+      </n-tabs>
+    </n-card>
+
+    <!-- 社交传播分析 -->
+    <n-card style="margin-top: 16px;" title="社交传播分析">
+      <template #header-extra>
+        <n-select
+          v-model:value="socialDays"
+          :options="daysOptions"
+          style="width: 120px"
+          @update:value="fetchSocialData"
+        />
+      </template>
+      <n-tabs type="line" animated>
+        <n-tab-pane name="sources" tab="社交平台">
+          <n-data-table :columns="socialSourceColumns" :data="socialData.sources" size="small" />
+        </n-tab-pane>
+        <n-tab-pane name="pages" tab="社交热门页">
+          <n-data-table :columns="socialPageColumns" :data="socialData.pages" size="small" />
+        </n-tab-pane>
+        <n-tab-pane name="trend" tab="社交流量趋势">
+          <n-data-table :columns="trendColumns" :data="socialData.trend" size="small" :pagination="{ pageSize: 15 }" />
+        </n-tab-pane>
+      </n-tabs>
+    </n-card>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { h, onMounted, reactive, ref } from 'vue';
-import { NButton, NCard, NDataTable, NGi, NGrid, NH2, NInput, NPagination, NSpace, NTag } from 'naive-ui';
-import type { DataTableColumns } from 'naive-ui';
+import { NButton, NCard, NDataTable, NGi, NGrid, NH2, NInput, NPagination, NSelect, NSpace, NTabPane, NTabs, NTag } from 'naive-ui';
+import type { DataTableColumns, SelectOption } from 'naive-ui';
 import StatsCard from '../components/StatsCard.vue';
 import { useAuthStore } from '../stores/auth';
-import type { AnalyticsBreakdownRow, AnalyticsPage, AnalyticsSummary, PaginatedResponse } from '../../shared/types';
+import type {
+  AnalyticsBreakdownRow, AnalyticsPage, AnalyticsSummary, PaginatedResponse,
+  SearchAnalytics, SearchLandingPage, SocialAnalytics, SocialSource, SocialPage, AnalyticsTrendRow,
+} from '../../shared/types';
 
 const authStore = useAuthStore();
 const loadingPages = ref(false);
@@ -68,7 +118,23 @@ const search = ref('');
 const pages = ref<AnalyticsPage[]>([]);
 const channels = ref<AnalyticsBreakdownRow[]>([]);
 const referrers = ref<AnalyticsBreakdownRow[]>([]);
-const searchEngines = ref<AnalyticsBreakdownRow[]>([]);
+
+/** 搜索来源分析 */
+const searchDays = ref(30);
+const searchData = reactive<SearchAnalytics>({
+  engines: [],
+  pages: [],
+  trend: [],
+  countries: [],
+});
+
+/** 社交传播分析 */
+const socialDays = ref(30);
+const socialData = reactive<SocialAnalytics>({
+  sources: [],
+  pages: [],
+  trend: [],
+});
 
 const summary = reactive<AnalyticsSummary>({
   today: { views: 0, visitors: 0, sessions: 0 },
@@ -77,9 +143,20 @@ const summary = reactive<AnalyticsSummary>({
   topPages: [],
 });
 
+/** 时间范围选项 */
+const daysOptions: SelectOption[] = [
+  { label: '近 7 天', value: 7 },
+  { label: '近 14 天', value: 14 },
+  { label: '近 30 天', value: 30 },
+  { label: '近 90 天', value: 90 },
+  { label: '近 180 天', value: 180 },
+];
+
 const headers = () => ({
   Authorization: `Bearer ${authStore.token}`,
 });
+
+// ===== 页面表现 =====
 
 const pageColumns: DataTableColumns<AnalyticsPage> = [
   {
@@ -114,6 +191,8 @@ const pageColumns: DataTableColumns<AnalyticsPage> = [
   },
 ];
 
+// ===== 渠道 + 来源 =====
+
 const channelColumns: DataTableColumns<AnalyticsBreakdownRow> = [
   { title: '渠道', key: 'channel', render: (row) => channelLabel(row.channel || '') },
   { title: 'PV', key: 'views', width: 80 },
@@ -126,11 +205,79 @@ const referrerColumns: DataTableColumns<AnalyticsBreakdownRow> = [
   { title: 'UV', key: 'visitors', width: 80 },
 ];
 
-const searchColumns: DataTableColumns<AnalyticsBreakdownRow> = [
-  { title: '搜索域名', key: 'referrerDomain', ellipsis: { tooltip: true } },
-  { title: 'PV', key: 'views', width: 80 },
-  { title: 'UV', key: 'visitors', width: 80 },
+// ===== 搜索来源分析 =====
+
+const searchEngineColumns: DataTableColumns<AnalyticsBreakdownRow> = [
+  { title: '搜索引擎', key: 'referrerDomain', ellipsis: { tooltip: true } },
+  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
 ];
+
+const searchLandingColumns: DataTableColumns<SearchLandingPage> = [
+  {
+    title: '着陆页',
+    key: 'pageTitle',
+    ellipsis: { tooltip: true },
+    render: (row) => row.pageTitle || row.pageId,
+  },
+  { title: '搜索 PV', key: 'views', width: 100, sorter: 'default' },
+  { title: '搜索 UV', key: 'visitors', width: 100, sorter: 'default' },
+  {
+    title: '打开',
+    key: 'open',
+    width: 70,
+    render: (row) => row.pageUrl
+      ? h('a', { href: row.pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none;' }, '打开')
+      : '-',
+  },
+];
+
+const trendColumns: DataTableColumns<AnalyticsTrendRow> = [
+  { title: '日期', key: 'date', width: 120 },
+  { title: 'PV', key: 'views', width: 100, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 100, sorter: 'default' },
+];
+
+const countryColumns: DataTableColumns<AnalyticsBreakdownRow> = [
+  { title: '国家', key: 'country', width: 100 },
+  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+];
+
+// ===== 社交传播分析 =====
+
+const socialSourceColumns: DataTableColumns<SocialSource> = [
+  { title: '平台', key: 'platform', width: 120 },
+  { title: 'PV', key: 'views', width: 80, sorter: 'default' },
+  { title: 'UV', key: 'visitors', width: 80, sorter: 'default' },
+  {
+    title: '来源域名',
+    key: 'domains',
+    render: (row) => row.domains.join(', '),
+    ellipsis: { tooltip: true },
+  },
+];
+
+const socialPageColumns: DataTableColumns<SocialPage> = [
+  {
+    title: '页面',
+    key: 'pageTitle',
+    ellipsis: { tooltip: true },
+    render: (row) => row.pageTitle || row.pageId,
+  },
+  { title: '社交流量', key: 'socialViews', width: 100, sorter: 'default' },
+  { title: '社交访客', key: 'socialVisitors', width: 100, sorter: 'default' },
+  {
+    title: '打开',
+    key: 'open',
+    width: 70,
+    render: (row) => row.pageUrl
+      ? h('a', { href: row.pageUrl, target: '_blank', rel: 'noopener noreferrer', style: 'color: #667eea; text-decoration: none;' }, '打开')
+      : '-',
+  },
+];
+
+// ===== 工具函数 =====
 
 function channelLabel(channel: string): string {
   const map: Record<string, string> = {
@@ -142,6 +289,8 @@ function channelLabel(channel: string): string {
   };
   return map[channel] || channel || '-';
 }
+
+// ===== 数据获取 =====
 
 async function fetchSummary() {
   const resp = await fetch('/api/v1/admin/analytics/summary', {
@@ -173,25 +322,52 @@ async function fetchPages(p = 1) {
 }
 
 async function fetchBreakdowns() {
-  const [channelsResp, referrersResp, searchResp] = await Promise.all([
+  const [channelsResp, referrersResp] = await Promise.all([
     fetch('/api/v1/admin/analytics/channels', { headers: headers(), credentials: 'include' }),
     fetch('/api/v1/admin/analytics/referrers', { headers: headers(), credentials: 'include' }),
-    fetch('/api/v1/admin/analytics/search', { headers: headers(), credentials: 'include' }),
   ]);
-  const [channelsData, referrersData, searchData] = await Promise.all([
+  const [channelsData, referrersData] = await Promise.all([
     channelsResp.json(),
     referrersResp.json(),
-    searchResp.json(),
   ]);
   if (channelsData.success) channels.value = channelsData.data || [];
   if (referrersData.success) referrers.value = referrersData.data || [];
-  if (searchData.success) searchEngines.value = searchData.data?.engines || [];
+}
+
+/** 获取搜索来源分析数据 */
+async function fetchSearchData() {
+  const resp = await fetch(`/api/v1/admin/analytics/search?days=${searchDays.value}`, {
+    headers: headers(),
+    credentials: 'include',
+  });
+  const data = await resp.json();
+  if (data.success && data.data) {
+    searchData.engines = data.data.engines || [];
+    searchData.pages = data.data.pages || [];
+    searchData.trend = data.data.trend || [];
+    searchData.countries = data.data.countries || [];
+  }
+}
+
+/** 获取社交传播分析数据 */
+async function fetchSocialData() {
+  const resp = await fetch(`/api/v1/admin/analytics/social?days=${socialDays.value}`, {
+    headers: headers(),
+    credentials: 'include',
+  });
+  const data = await resp.json();
+  if (data.success && data.data) {
+    socialData.sources = data.data.sources || [];
+    socialData.pages = data.data.pages || [];
+    socialData.trend = data.data.trend || [];
+  }
 }
 
 onMounted(() => {
   fetchSummary();
   fetchPages();
   fetchBreakdowns();
+  fetchSearchData();
+  fetchSocialData();
 });
 </script>
-

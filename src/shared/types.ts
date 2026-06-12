@@ -140,6 +140,54 @@ export interface AnalyticsBreakdownRow {
   sessions?: number;
 }
 
+/** 搜索来源分析数据 */
+export interface SearchAnalytics {
+  engines: AnalyticsBreakdownRow[];
+  pages: SearchLandingPage[];
+  trend: AnalyticsTrendRow[];
+  countries: AnalyticsBreakdownRow[];
+}
+
+/** 搜索着陆页 */
+export interface SearchLandingPage {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  views: number;
+  visitors: number;
+}
+
+/** 流量趋势行 */
+export interface AnalyticsTrendRow {
+  date: string;
+  views: number;
+  visitors: number;
+}
+
+/** 社交传播分析数据 */
+export interface SocialAnalytics {
+  sources: SocialSource[];
+  pages: SocialPage[];
+  trend: AnalyticsTrendRow[];
+}
+
+/** 社交平台来源 */
+export interface SocialSource {
+  platform: string;
+  views: number;
+  visitors: number;
+  domains: string[];
+}
+
+/** 社交传播页面 */
+export interface SocialPage {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  socialViews: number;
+  socialVisitors: number;
+}
+
 // 管理后台配置
 export interface AdminConfig {
   siteName: string;
