@@ -76,6 +76,14 @@
 
     <!-- 页面表现 -->
     <n-card style="margin-top: 16px;" title="页面表现">
+      <template #header-extra>
+        <n-select
+          v-model:value="pagePeriod"
+          :options="pagePeriodOptions"
+          style="width: 120px"
+          @update:value="fetchPages(1)"
+        />
+      </template>
       <n-space style="margin-bottom: 12px;">
         <n-input v-model:value="search" placeholder="搜索页面标题 / ID / URL" clearable style="width: 260px" @keyup.enter="fetchPages(1)" />
         <n-button type="primary" @click="fetchPages(1)">搜索</n-button>
@@ -204,6 +212,16 @@ const search = ref('');
 const pages = ref<AnalyticsPage[]>([]);
 const channels = ref<AnalyticsBreakdownRow[]>([]);
 const referrers = ref<AnalyticsBreakdownRow[]>([]);
+
+/** 页面表现时间段 */
+const pagePeriod = ref('7d');
+const pagePeriodOptions: SelectOption[] = [
+  { label: '今日', value: 'today' },
+  { label: '昨日', value: 'yesterday' },
+  { label: '近 7 天', value: '7d' },
+  { label: '近 30 天', value: '30d' },
+  { label: '累计', value: 'all' },
+];
 
 /** 搜索来源分析 */
 const searchDays = ref(30);
@@ -512,7 +530,7 @@ async function fetchPages(p = 1) {
   loadingPages.value = true;
   page.value = p;
   try {
-    const params = new URLSearchParams({ page: String(p), limit: '20' });
+    const params = new URLSearchParams({ page: String(p), limit: '20', period: pagePeriod.value });
     if (search.value) params.set('search', search.value);
     const resp = await fetch(`/api/v1/admin/analytics/pages?${params}`, { headers: headers(), credentials: 'include' });
     const data = await resp.json() as { success: boolean; data?: PaginatedResponse<AnalyticsPage> };
