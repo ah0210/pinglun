@@ -10,6 +10,31 @@ const SORT_COLUMNS: Record<string, string> = {
   messageCount: 'message_count',
 };
 
+/**
+ * 清洗页面标题，去掉站点后缀
+ * 例如 "文章标题 - 自游人（一起游） - 专注AI旅行与赚钱技术的自由行社区 17you.com"
+ * → "文章标题"
+ *
+ * 策略：从右向左逐段去掉 " - xxx"，直到遇到非站点名段
+ * 站点名特征：包含 "自游人"、"一起游"、"17you"、"社区" 等关键词
+ */
+function cleanTitle(title: string): string {
+  if (!title) return '';
+  let cleaned = title.trim();
+  // 反复去掉右侧的站点名后缀段
+  while (cleaned.includes(' - ')) {
+    const lastDash = cleaned.lastIndexOf(' - ');
+    const suffix = cleaned.slice(lastDash + 3).trim();
+    // 判断后缀是否是站点名（包含特征关键词）
+    if (/(自游人|一起游|17you|专注.*社区|自由行社区)/i.test(suffix)) {
+      cleaned = cleaned.slice(0, lastDash).trim();
+    } else {
+      break;
+    }
+  }
+  return cleaned;
+}
+
 export const onRequestGet = apiHandler(async (request, env) => {
   const url = new URL(request.url);
   const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10), 1), 50);
@@ -45,7 +70,7 @@ export const onRequestGet = apiHandler(async (request, env) => {
     .filter(row => row.pageUrl || row.canonicalUrl)
     .map(row => ({
       pageId: row.pageId,
-      pageTitle: row.pageTitle || '',
+      pageTitle: cleanTitle(row.pageTitle || ''),
       pageUrl: row.canonicalUrl || row.pageUrl,
       views: row.views || 0,
       visitors: row.visitors || 0,
