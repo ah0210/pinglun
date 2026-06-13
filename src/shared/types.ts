@@ -190,6 +190,82 @@ export interface SocialPage {
   socialVisitors: number;
 }
 
+/** 异常事件 */
+export interface AnomalyEvent {
+  metric: string;       // pv / uv / searchPv / messages
+  level: 'warning' | 'critical';
+  direction: 'up' | 'down';
+  todayValue: number;
+  avgValue: number;
+  changePercent: number;
+  possibleCause: string;
+  suggestion: string;
+}
+
+/** 异常检测数据 */
+export interface AnomalyData {
+  anomalies: AnomalyEvent[];
+  dataPoints: number;
+  today: { date: string; pv: number; uv: number; searchPv: number; messages: number };
+  baseline: { avgPv: number; avgUv: number };
+}
+
+/** 漏斗阶段 */
+export interface FunnelStage {
+  name: string;
+  value: number;
+  rate: number;
+  dropoff: number;
+  tip: string;
+}
+
+/** 页面漏斗 */
+export interface PageFunnel {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  stages: FunnelStage[];
+  biggestDrop: string;
+  suggestion: string;
+}
+
+/** 转化漏斗数据 */
+export interface FunnelData {
+  overall: { stages: FunnelStage[] };
+  pages: PageFunnel[];
+}
+
+/** 关键词统计行 */
+export interface KeywordRow {
+  keyword: string;
+  views: number;
+  visitors: number;
+  pages: number;
+}
+
+/** 关键词对应页面 */
+export interface KeywordPageRow {
+  pageId: string;
+  pageTitle: string;
+  pageUrl: string;
+  views: number;
+  visitors: number;
+}
+
+/** 关键词反查数据 */
+export interface KeywordData {
+  keywords: KeywordRow[];
+  topKeywordsWithPages: (KeywordRow & { topPages: KeywordPageRow[] })[];
+  engineStats: { engine: string; totalViews: number; withKeywordViews: number; notProvidedRate: string }[];
+  summary: {
+    totalSearchEvents: number;
+    extractedKeywords: number;
+    notProvided: number;
+    extractionRate: string;
+    uniqueKeywords: number;
+  };
+}
+
 // 管理后台配置
 export interface AdminConfig {
   siteName: string;
