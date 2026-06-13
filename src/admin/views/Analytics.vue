@@ -399,6 +399,7 @@ const pageColumns: DataTableColumns<AnalyticsPage> = [
   { title: '页面', key: 'pageTitle', ellipsis: { tooltip: true }, render: (row) => row.pageTitle || row.pageId },
   { title: 'PV', key: 'views', width: 70, sorter: 'default' },
   { title: 'UV', key: 'visitors', width: 70, sorter: 'default' },
+  { title: '会话', key: 'sessions', width: 70, sorter: 'default' },
   { title: '搜索 PV', key: 'searchViews', width: 85, sorter: 'default' },
   { title: '留言', key: 'messageCount', width: 65, sorter: 'default' },
   { title: '搜索占比', key: 'searchRatio', width: 90, sorter: (a, b) => (a.views > 0 ? a.searchViews / a.views : 0) - (b.views > 0 ? b.searchViews / b.views : 0), render: (row) => `${((row.views > 0 ? row.searchViews / row.views : 0) * 100).toFixed(1)}%` },

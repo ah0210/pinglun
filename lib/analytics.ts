@@ -180,7 +180,20 @@ export async function recordPageView(
     return { stats, writePromise: Promise.resolve() };
   }
 
-  // 阶段2：读取当前 page_totals 以构建乐观返回值
+  // 阶段2：判断是否是新访客/新会话（用于决定 visitors/sessions 是否 +1）
+  const date = today();
+  const [existingVisitor, existingSession] = await Promise.all([
+    env.DB.prepare(
+      'SELECT 1 FROM analytics_daily_visitors WHERE date = ? AND page_id = ? AND visitor_id = ?'
+    ).bind(date, pageId, visitorId).first(),
+    env.DB.prepare(
+      'SELECT 1 FROM analytics_daily_sessions WHERE date = ? AND page_id = ? AND session_id = ?'
+    ).bind(date, pageId, sessionId).first(),
+  ]);
+  const isNewVisitor = !existingVisitor;
+  const isNewSession = !existingSession;
+
+  // 阶段3：读取当前 page_totals 以构建乐观返回值
   const currentStats = await env.DB.prepare(
     `SELECT views, visitors, sessions, search_views, message_count
      FROM analytics_page_totals WHERE page_id = ?`
@@ -198,10 +211,9 @@ export async function recordPageView(
   const utmCampaign = text(body.utm?.campaign, 150);
   const channel = normalizeChannel(body.channel);
   const channelColumn = CHANNEL_COLUMNS[channel];
-  const date = today();
   const messageCount = currentStats?.message_count || 0;
 
-  // 阶段3：构建乐观返回值（基于 currentStats + 1，无需等写入完成）
+  // 阶段4：构建乐观返回值（基于 currentStats + 1，无需等写入完成）
   const baseViews = currentStats?.views || 0;
   const baseVisitors = currentStats?.visitors || 0;
   const baseSessions = currentStats?.sessions || 0;
@@ -213,8 +225,8 @@ export async function recordPageView(
     pageUrl,
     canonicalUrl,
     views: baseViews + 1,
-    visitors: baseVisitors + 1,
-    sessions: baseSessions + 1,
+    visitors: baseVisitors + (isNewVisitor ? 1 : 0),
+    sessions: baseSessions + (isNewSession ? 1 : 0),
     searchViews: baseSearchViews + (channel === 'search' ? 1 : 0),
     messageCount,
   };
@@ -251,34 +263,34 @@ export async function recordPageView(
     env.DB.prepare(
       `INSERT INTO analytics_page_daily (
          date, page_id, page_title, page_url, canonical_url, views, visitors, sessions, ${channelColumn}, updated_at
-       ) VALUES (?, ?, ?, ?, ?, 1, 1, 1, 1, datetime('now', '+8 hours'))
+       ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, 1, datetime('now', '+8 hours'))
        ON CONFLICT(date, page_id) DO UPDATE SET
          page_title = excluded.page_title,
          page_url = excluded.page_url,
          canonical_url = excluded.canonical_url,
          views = analytics_page_daily.views + 1,
-         visitors = analytics_page_daily.visitors + 1,
-         sessions = analytics_page_daily.sessions + 1,
+         visitors = analytics_page_daily.visitors + ?,
+         sessions = analytics_page_daily.sessions + ?,
          ${channelColumn} = ${channelColumn} + 1,
          updated_at = datetime('now', '+8 hours')`
-    ).bind(date, pageId, pageTitle, pageUrl, canonicalUrl),
+    ).bind(date, pageId, pageTitle, pageUrl, canonicalUrl, isNewVisitor ? 1 : 0, isNewSession ? 1 : 0, isNewVisitor ? 1 : 0, isNewSession ? 1 : 0),
     // 4e. 总聚合
     env.DB.prepare(
       `INSERT INTO analytics_page_totals (
          page_id, page_title, page_url, canonical_url, views, visitors, sessions, search_views, message_count, last_view_at, updated_at
-       ) VALUES (?, ?, ?, ?, 1, 1, 1, ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
+       ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now', '+8 hours'), datetime('now', '+8 hours'))
        ON CONFLICT(page_id) DO UPDATE SET
          page_title = excluded.page_title,
          page_url = excluded.page_url,
          canonical_url = excluded.canonical_url,
          views = analytics_page_totals.views + 1,
-         visitors = analytics_page_totals.visitors + 1,
-         sessions = analytics_page_totals.sessions + 1,
+         visitors = analytics_page_totals.visitors + ?,
+         sessions = analytics_page_totals.sessions + ?,
          search_views = analytics_page_totals.search_views + ?,
          message_count = max(analytics_page_totals.message_count, excluded.message_count),
          last_view_at = datetime('now', '+8 hours'),
          updated_at = datetime('now', '+8 hours')`
-    ).bind(pageId, pageTitle, pageUrl, canonicalUrl, channel === 'search' ? 1 : 0, messageCount, channel === 'search' ? 1 : 0),
+    ).bind(pageId, pageTitle, pageUrl, canonicalUrl, isNewVisitor ? 1 : 0, isNewSession ? 1 : 0, channel === 'search' ? 1 : 0, messageCount, isNewVisitor ? 1 : 0, isNewSession ? 1 : 0, channel === 'search' ? 1 : 0),
   ]).then(() => {});
 
   return { stats: optimisticStats, writePromise };
